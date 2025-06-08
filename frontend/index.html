@@ -15,18 +15,6 @@
         <p class="tagline">Your AI that never forgets.</p>
       </div>
 
-      <section id="upload-section" class="card upload-card">
-        <h2>📥 Import History</h2>
-        <input type="file" id="fileInput" accept=".zip" />
-        <button onclick="uploadFile()">Upload ChatGPT Export</button>
-        <p id="uploadStatus" class="status-message"></p>
-        <div id="progressBarContainer" style="width: 100%; background-color: #e0e0e0; border-radius: 4px; display: none; margin-top: 5px;">
-          <div id="progressBar" style="width: 0%; height: 20px; background-color: var(--primary-color); border-radius: 4px; text-align: center; color: white; line-height: 20px;">
-            0%
-          </div>
-        </div>
-      </section>
-
       <section id="chat-list" class="card chat-list-card">
         <h2>📂 Your Chats</h2>
         <ul id="chatList">
@@ -34,6 +22,32 @@
         </ul>
         <button class="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
       </section>
+
+      <button id="optionsBtn">⚙️ Options</button> 
+      
+      <div id="optionsPanel" class="card"> <!-- display: none; is handled by CSS -->
+        <h2>⚙️ Options</h2>
+        <div>
+          <label for="apiKeyInput">API Key:</label>
+          <input type="password" id="apiKeyInput" placeholder="Enter your API key">
+          <button id="saveApiKeyBtn">Save Key</button>
+        </div>
+        
+        <hr style="border-color: var(--border-color); margin-top: 20px; margin-bottom: 20px;">
+
+        <section id="upload-section" class="upload-card"> <!-- Removed 'card' class, using 'upload-card' for specific styling if needed -->
+          <h2>📥 Import History</h2>
+          <input type="file" id="fileInput" accept=".zip" />
+          <button onclick="uploadFile()">Upload ChatGPT Export</button>
+          <p id="uploadStatus" class="status-message"></p>
+          <div id="progressBarContainer" style="width: 100%; background-color: #e0e0e0; border-radius: 4px; display: none; margin-top: 5px;">
+            <div id="progressBar" style="width: 0%; height: 20px; background-color: var(--primary-color); border-radius: 4px; text-align: center; color: white; line-height: 20px;">
+              0%
+            </div>
+          </div>
+        </section>
+      </div>
+
     </aside>
 
     <main class="chat-area">
@@ -41,6 +55,7 @@
         <h2 id="chatTitle">🗣️ Select a Chat or Start New</h2>
       </div>
       <div id="messages" class="messages-container">
+        <div id="loadingIndicator" style="display:none; text-align:center; padding:10px; color: var(--light-text-color);">Loading older messages...</div>
         <div class="welcome-message">
           <p>Welcome to NeuroChat! Your personal AI with infinite memory.</p>
           <p>Upload your ChatGPT conversation history to get started, or click "New Chat" to begin a fresh conversation.</p>

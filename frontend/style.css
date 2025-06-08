@@ -1,18 +1,19 @@
 :root {
-    --primary-color: #5b7bff; /* A nice blue */
-    --secondary-color: #6a7c93; /* Darker grey for text */
-    --background-color: #f0f2f5; /* Light grey background */
-    --card-background: #ffffff;
-    --border-color: #e0e4eb;
-    --text-color: #333;
-    --light-text-color: #777;
-    --shadow-light: rgba(0, 0, 0, 0.05);
-    --shadow-medium: rgba(0, 0, 0, 0.1);
-    --user-bubble-bg: #e1efff; /* Light blue for user */
-    --ai-bubble-bg: #f5f5f5; /* Light grey for AI */
+    /* Dark Theme Colors */
+    --primary-color: #6ba2ff; /* Brighter blue for dark mode */
+    --secondary-color: #a0b4c9; /* Lighter grey for secondary text */
+    --background-color: #1a1a1a; /* Very dark grey/black for background */
+    --card-background: #2c2c2c; /* Dark grey for cards */
+    --border-color: #444444; /* Mid-grey for borders */
+    --text-color: #e0e0e0; /* Light grey/off-white for main text */
+    --light-text-color: #b0b0b0; /* Slightly darker light text */
+    --shadow-light: rgba(255, 255, 255, 0.05); /* Lighter shadow for dark bg */
+    --shadow-medium: rgba(255, 255, 255, 0.1); /* Lighter shadow for dark bg */
+    --user-bubble-bg: #00509e; /* Darker, distinct blue for user */
+    --ai-bubble-bg: #3a3a3a; /* Dark grey for AI */
     --font-inter: 'Inter', sans-serif;
-    --code-bg: #e8e8e8; /* Light grey for code background */
-    --code-text: #333; /* Dark text for code */
+    --code-bg: #36454F; /* Charcoal for code background */
+    --code-text: #e0e0e0; /* Light text for code */
 }
 
 body {
@@ -26,23 +27,30 @@ body {
 }
 
 .container {
-    display: grid;
-    grid-template-columns: 300px 1fr; /* Sidebar (fixed) and main content */
+    /* display: grid; removed for fixed sidebar */
+    /* grid-template-columns: 300px 1fr; */
     min-height: 100vh;
-    box-shadow: 0 0 20px var(--shadow-medium);
-    border-radius: 8px;
-    overflow: hidden; /* Ensures shadows/borders are contained */
+    /* box-shadow: 0 0 20px var(--shadow-medium); */ /* Shadow might not be desired on container anymore */
+    /* border-radius: 8px; */ /* Radius might not be desired on container anymore */
+    /* overflow: hidden; */ /* Can interfere with fixed positioning or shadows on children */
 }
 
 /* Sidebar Styling */
 .sidebar {
-    background-color: #2c3e50; /* Darker blue-grey */
-    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 300px; /* Explicit width for fixed sidebar */
+    height: 100vh;
+    background-color: #252d38; /* Slightly darker than card-background */
+    color: var(--text-color); /* Use main text color */
     padding: 20px;
     display: flex;
     flex-direction: column;
-    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    border-right: 1px solid var(--border-color); /* Use themed border color */
     box-sizing: border-box; /* Include padding in width */
+    z-index: 100; /* Ensure sidebar is on top */
+    overflow-y: auto; /* Allow sidebar itself to scroll if content exceeds viewport */
 }
 
 .sidebar .header {
@@ -58,7 +66,7 @@ body {
 
 .sidebar .tagline {
     font-size: 0.9em;
-    color: rgba(255, 255, 255, 0.7);
+    color: var(--light-text-color); /* Use light text color */
 }
 
 .card {
@@ -67,7 +75,7 @@ body {
     padding: 20px;
     margin-bottom: 20px;
     box-shadow: 0 4px 15px var(--shadow-light);
-    color: var(--text-color); /* Ensure text is readable on white card */
+    color: var(--text-color); /* Ensure text is readable on dark card */
 }
 
 .card h2 {
@@ -78,10 +86,19 @@ body {
     font-weight: 600;
 }
 
-/* Upload Section */
+/* Upload Section (now inside Options Panel) */
 .upload-card {
-    background-color: #e6f0ff; /* Lighter blue background for upload */
-    border: 1px solid #cce0ff;
+    /* background-color: #2f3b4c; /* Removed - will use parent card's bg */
+    /* border: 1px solid var(--border-color); /* Removed - will use parent card's border/shadow */
+    padding: 0; /* Remove padding if it was part of .card, or adjust as needed */
+    margin-bottom: 0; /* Remove margin if it was part of .card */
+    box-shadow: none; /* Remove shadow if it was part of .card */
+}
+
+/* Ensure h2 within the moved upload-section has some space if needed, though <hr> handles some */
+#optionsPanel #upload-section h2 {
+    margin-top: 0; /* Reset top margin as <hr> provides it */
+    /* color: var(--text-color); /* Ensure title color is consistent if needed */
 }
 
 #fileInput {
@@ -91,13 +108,14 @@ body {
     padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
-    background-color: white;
+    background-color: var(--card-background); /* Use card background */
+    color: var(--text-color); /* Ensure text is visible */
 }
 
 button {
     padding: 10px 18px;
     background-color: var(--primary-color);
-    color: white;
+    color: #ffffff; /* Explicitly white for buttons for contrast */
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -108,7 +126,7 @@ button {
 }
 
 button:hover {
-    background-color: #4a6ceb;
+    background-color: #5a8dec; /* Lighter shade for hover */
     transform: translateY(-1px);
 }
 
@@ -138,7 +156,7 @@ button:active {
     border: 1px solid var(--border-color);
     border-radius: 5px;
     margin-bottom: 15px;
-    background-color: #fcfcfc;
+    background-color: var(--card-background); /* Use card background */
 }
 
 #chatList li {
@@ -156,30 +174,33 @@ button:active {
 
 #chatList li:hover {
     background-color: var(--primary-color);
-    color: white;
+    color: #ffffff; /* Explicitly white for hover state */
 }
 
 #chatList li.active {
     background-color: var(--primary-color);
-    color: white;
+    color: #ffffff; /* Explicitly white for active state */
     font-weight: 600;
 }
 
 .new-chat-btn {
-    background-color: #28a745; /* Green for new chat */
+    background-color: #3ba55d; /* Adjusted green for dark mode */
 }
 
 .new-chat-btn:hover {
-    background-color: #218838;
+    background-color: #328a4c; /* Darker green for hover */
 }
 
 /* Chat Area Styling */
 .chat-area {
+    margin-left: 300px; /* Offset by sidebar width */
     display: flex;
     flex-direction: column;
     padding: 20px;
     box-sizing: border-box;
-    background-color: var(--card-background); /* White background for chat area */
+    background-color: var(--background-color); /* Use main background for chat area */
+    height: 100vh; /* Ensure chat area takes full viewport height */
+    overflow-y: hidden; /* Prevent double scrollbars, messages-container handles its own scroll */
 }
 
 .chat-header {
@@ -201,7 +222,7 @@ button:active {
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background-color: var(--background-color);
+    background-color: var(--card-background); /* Use card background for messages container */
     display: flex;
     flex-direction: column;
     gap: 10px; /* Space between messages */
@@ -236,14 +257,14 @@ button:active {
     background-color: var(--user-bubble-bg);
     align-self: flex-end; /* Align to the right */
     border-bottom-right-radius: 5px; /* Sharpen corner for user */
-    color: var(--text-color);
+    color: #ffffff; /* Ensure text is white on dark blue bubble */
 }
 
 .assistant-message {
     background-color: var(--ai-bubble-bg);
     align-self: flex-start; /* Align to the left */
     border-bottom-left-radius: 5px; /* Sharpen corner for AI */
-    color: var(--text-color);
+    color: var(--text-color); /* Use general text color for AI bubbles */
 }
 
 /* Styling for images within message bubbles */
@@ -288,6 +309,8 @@ button:active {
     font-size: 1em;
     outline: none;
     transition: border-color 0.3s ease;
+    background-color: var(--card-background); /* Darker input background */
+    color: var(--text-color); /* Light text for input */
 }
 
 #chatInput:focus {
@@ -298,23 +321,83 @@ button:active {
     padding: 12px 20px;
     border-radius: 25px;
     min-width: 100px;
+    color: #ffffff; /* Ensure button text is white */
 }
 
 #sendMessageBtn:disabled {
-    background-color: #cccccc;
+    background-color: #555555; /* Darker disabled state */
+    color: #aaaaaa; /* Lighter text for disabled state */
     cursor: not-allowed;
 }
+
+/* Options Panel Styling */
+#optionsBtn {
+    /* Inherits general button styling which is already curved */
+    /* Adding specific margin if needed, though already handled inline for now */
+    margin-top: 15px; /* Match inline style for consistency */
+    background-color: var(--secondary-color); /* Distinct color for options button */
+}
+
+#optionsBtn:hover {
+    background-color: #8a9bb1; /* Lighter shade of secondary for hover */
+}
+
+#optionsPanel {
+    display: none; /* Hidden by default, controlled by JS */
+    margin-top: 10px; /* Match inline style for consistency */
+    /* Inherits .card styling for background, padding, border-radius, box-shadow */
+}
+
+#optionsPanel h2 {
+    /* Inherits .card h2 styling */
+    margin-bottom: 20px; /* More space after title in options */
+}
+
+#optionsPanel label {
+    display: block;
+    margin-bottom: 8px; /* Increased margin for label */
+    font-weight: 500;
+    color: var(--light-text-color);
+}
+
+#optionsPanel input[type="password"],
+#optionsPanel input[type="text"] { /* General input styling within options */
+    width: 100%; /* Take full width of parent */
+    padding: 10px;
+    margin-bottom: 15px; /* More space after input */
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background-color: var(--background-color); /* Darker than card for contrast */
+    color: var(--text-color);
+    box-sizing: border-box; /* Ensure padding doesn't expand it beyond 100% */
+}
+
+#optionsPanel button {
+    /* Inherits general button styling */
+    /* width: 100%; is already default for buttons in cards */
+    background-color: var(--primary-color); /* Can be same as primary or different */
+}
+
+#optionsPanel button:hover {
+    background-color: #5a8dec; /* Consistent hover as other primary buttons */
+}
+
 
 /* Basic Responsiveness */
 @media (max-width: 768px) {
     .container {
-        grid-template-columns: 1fr; /* Single column layout on smaller screens */
+        /* grid-template-columns: 1fr; /* No longer applicable */
     }
 
     .sidebar {
-        padding: 15px;
+        /* For smaller screens, we might want the sidebar to be toggleable or hidden by default */
+        /* For now, let's reduce its width or handle it differently if it becomes an issue */
+        width: 100%; /* Full width, would hide chat area or need toggle */
+        height: auto; /* Adjust height as needed */
+        position: static; /* Revert to static for simple mobile layout */
         border-right: none;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid var(--border-color);
+        /* padding: 15px; */ /* Padding is already set */
     }
 
     .sidebar .header {
@@ -322,7 +405,9 @@ button:active {
     }
 
     .chat-area {
+        margin-left: 0; /* Remove margin when sidebar is static/full-width */
         padding: 15px;
+        height: auto; /* Allow chat area to define its height */
     }
 
     .message-bubble {
