@@ -1,5 +1,6 @@
 import chromadb
 import os
+import uuid
 
 CHROMA_PATH = "storage/chroma"
 COLLECTION_NAME = "memory"
