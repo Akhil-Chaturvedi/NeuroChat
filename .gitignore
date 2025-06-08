@@ -1,0 +1,39 @@
+# === Python cache & compiled files ===
+__pycache__/
+*.py[cod]
+*.so
+
+# === Virtual environments ===
+.venv/
+env/
+venv/
+.pythonlibs/
+
+# === Replit files ===
+*.replit.lock
+*.replit.nix.lock
+*.db
+replit.nix
+replit.nix.lock
+
+# === ChromaDB memory & state ===
+*.sqlite3
+storage/chroma/
+chat_state.json
+
+# === API Keys / Secrets ===
+.env
+
+# === Logs & temporary files ===
+*.log
+*.bak
+*.swp
+*.tmp
+
+# === OS-specific ===
+.DS_Store
+Thumbs.db
+
+# === Platform scripts ===
+Run.bat
+install.sh
