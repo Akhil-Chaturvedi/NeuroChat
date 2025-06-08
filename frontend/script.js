@@ -1,20 +1,33 @@
 // Function to update the active chat in the UI
 let activeChatId = null; // Keep track of the currently active chat
 
+// Progress bar elements
+const progressBarContainer = document.getElementById("progressBarContainer");
+const progressBar = document.getElementById("progressBar");
+
 async function uploadFile() {
   const fileInput = document.getElementById("fileInput");
   const status = document.getElementById("uploadStatus");
 
+  // Reset progress bar and status for new upload
+  progressBarContainer.style.display = "none";
+  progressBar.style.width = "0%";
+  progressBar.textContent = "0%";
+  progressBar.style.backgroundColor = "var(--primary-color)";
+  status.textContent = ""; // Clear previous status messages
+  status.style.color = "var(--primary-color)";
+
+
   if (!fileInput.files.length) {
-    status.textContent = "Please select a .zip file first."; // Updated instruction
+    status.textContent = "Please select a .zip file first.";
     return;
   }
 
   const formData = new FormData();
   formData.append("file", fileInput.files[0]);
 
-  status.textContent = "Uploading and processing...";
-  status.style.color = "var(--primary-color)"; // Set color for status message
+  status.textContent = "Uploading file...";
+  progressBarContainer.style.display = "block"; // Show progress bar container
 
   try {
     const response = await fetch("/upload", {
@@ -23,21 +36,115 @@ async function uploadFile() {
     });
     const result = await response.json();
 
-    if (response.ok) { // Check if the response status is successful (2xx)
-      status.textContent = `✅ ${result.message}`;
-      status.style.color = "#28a745"; // Green for success
-      fileInput.value = ''; // Clear file input
-      loadChats(); // Refresh chat list
+    if (response.ok) {
+      // Display initial message from upload endpoint
+      status.textContent = result.message || "File uploaded. Waiting for processing to start...";
+      progressBar.style.width = "0%"; // Ensure it starts at 0 if not already
+      progressBar.textContent = "0%";
+      // Start polling for status
+      if (result.task_id) {
+        checkUploadStatus(result.task_id);
+      } else {
+        status.textContent = '❌ Error: Missing task_id from server response.';
+        status.style.color = "#dc3545";
+        progressBarContainer.style.display = "none"; // Hide progress bar on immediate error
+      }
     } else {
-      status.textContent = `❌ Error: ${result.detail || 'Unknown error'}`; // Display error detail from backend
-      status.style.color = "#dc3545"; // Red for error
+      status.textContent = `❌ Error: ${result.detail || 'Unknown error during upload'}`;
+      status.style.color = "#dc3545";
+      progressBarContainer.style.display = "none"; // Hide progress bar on upload error
     }
   } catch (error) {
-    status.textContent = `❌ Network or server error: ${error.message}`;
-    status.style.color = "#dc3545"; // Red for error
+    status.textContent = `❌ Network or server error during upload: ${error.message}`;
+    status.style.color = "#dc3545";
+    progressBarContainer.style.display = "none"; // Hide progress bar on network error
     console.error("Upload failed:", error);
   }
 }
+
+let pollingIntervalId = null; // To store the interval ID for polling
+
+async function checkUploadStatus(taskId) {
+  const status = document.getElementById("uploadStatus");
+  // progressBar and progressBarContainer are already defined globally
+
+  // Clear any existing interval before starting a new one
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+  }
+
+  pollingIntervalId = setInterval(async () => {
+    try {
+      const response = await fetch(`/upload-status/${taskId}`);
+      if (!response.ok) { // Handles HTTP errors like 404, 500 from the status endpoint
+        clearInterval(pollingIntervalId);
+        pollingIntervalId = null; // Ensure it's cleared
+        status.textContent = `❌ Error checking status: Server returned ${response.status}.`;
+        status.style.color = "#dc3545";
+        progressBar.style.backgroundColor = "#dc3545"; // Error color for progress bar
+        console.error("Error checking status:", response.statusText);
+        return;
+      }
+      const result = await response.json();
+
+      // Update progress bar
+      const currentProgress = result.progress || 0;
+      progressBar.style.width = currentProgress + "%";
+      progressBar.textContent = currentProgress + "%";
+      
+      status.textContent = `${result.message || 'Working...'}`; 
+      // Set status text color based on result.status
+      if (result.status === "completed") {
+        clearInterval(pollingIntervalId);
+        pollingIntervalId = null; 
+        status.textContent = `✅ ${result.message || 'Processing complete!'}`;
+        status.style.color = "#28a745"; // Green for success text
+        progressBar.style.width = "100%"; // Ensure 100% on complete
+        progressBar.textContent = "100%";
+        progressBar.style.backgroundColor = "#28a745"; // Green for progress bar
+        
+        document.getElementById("fileInput").value = ''; 
+        // The progress bar remains visible at 100% until a new file is selected or upload starts
+        loadChats(); 
+      } else if (result.status === "error") {
+        clearInterval(pollingIntervalId);
+        pollingIntervalId = null;
+        status.textContent = `❌ Error: ${result.message || 'An unknown error occurred during processing.'}`;
+        status.style.color = "#dc3545"; // Red for error text
+        progressBar.style.backgroundColor = "#dc3545"; // Red for progress bar
+        // Progress bar shows progress at time of error
+      } else { // Still processing
+        status.style.color = "var(--primary-color)"; // Default color for status text
+        progressBar.style.backgroundColor = "var(--primary-color)"; // Default color for progress bar
+      }
+    } catch (error) { // Handles network errors for the status check itself
+      clearInterval(pollingIntervalId);
+      pollingIntervalId = null;
+      status.textContent = '❌ Network error while checking status.';
+      status.style.color = "#dc3545";
+      progressBar.style.backgroundColor = "#dc3545"; // Error color for progress bar
+      console.error("Error fetching upload status:", error);
+    }
+  }, 2000); // Poll every 2 seconds
+}
+
+// Add an event listener to fileInput to reset progress bar and status when a new file is selected
+document.getElementById('fileInput').addEventListener('change', () => {
+  const status = document.getElementById("uploadStatus");
+  status.textContent = ""; // Clear status message
+  status.style.color = "var(--primary-color)"; // Reset color
+  
+  progressBarContainer.style.display = "none";
+  progressBar.style.width = "0%";
+  progressBar.textContent = "0%";
+  progressBar.style.backgroundColor = "var(--primary-color)";
+
+  // If polling was active from a previous upload attempt that wasn't completed, clear it.
+  if (pollingIntervalId) {
+    clearInterval(pollingIntervalId);
+    pollingIntervalId = null;
+  }
+});
 
 async function loadChats() {
   const res = await fetch("/chats");

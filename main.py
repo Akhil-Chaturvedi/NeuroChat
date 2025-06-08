@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from chat.importer import import_chatgpt_json # This will need to be updated soon
@@ -9,8 +9,12 @@ import os
 import zipfile
 import tempfile
 import shutil # For removing temporary directories
+import uuid
 
 app = FastAPI()
+
+# Task status storage
+task_statuses = {}
 
 # Serve frontend
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
@@ -28,59 +32,91 @@ def index():
 
 # Upload ChatGPT .zip file
 @app.post("/upload")
-async def upload_chatgpt(file: UploadFile = File(...)):
+async def upload_chatgpt(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
     if not file.filename.endswith(".zip"):
         raise HTTPException(status_code=400, detail="Please upload a .zip file.")
 
-    temp_dir = None
-    try:
-        # Create a temporary directory to extract the zip file
-        temp_dir = tempfile.mkdtemp()
-        zip_path = os.path.join(temp_dir, file.filename)
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, file.filename)
 
+    try:
         # Save the uploaded zip file
         with open(zip_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        # Extract the zip file
-        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-            zip_ref.extractall(temp_dir)
+        # Initial validation done, now prepare for background task
+        task_id = uuid.uuid4().hex
+        task_statuses[task_id] = {"status": "processing", "progress": 0, "message": "Upload successful, processing started."}
 
-        conversations_json_path = None
-        extracted_files_base_path = temp_dir # Base path for extracted files (including images)
+        # Define the background task function
+        def process_zip_file_background(task_id: str, zip_path: str, temp_dir: str):
+            try:
+                # Extract the zip file
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
 
-        # Look for conversations.json or chat.json within the extracted content
-        for root, _, files in os.walk(temp_dir):
-            if "conversations.json" in files:
-                conversations_json_path = os.path.join(root, "conversations.json")
-                break
-            elif "chat.json" in files: # Some exports might use chat.json
-                conversations_json_path = os.path.join(root, "chat.json")
-                break
-        
-        if not conversations_json_path:
-            raise HTTPException(status_code=400, detail="Could not find 'conversations.json' or 'chat.json' in the uploaded zip file.")
+                conversations_json_path = None
+                extracted_files_base_path = temp_dir
 
-        # Read the JSON content
-        with open(conversations_json_path, "r", encoding='utf-8') as f:
-            json_contents = f.read()
+                for root, _, files in os.walk(temp_dir):
+                    if "conversations.json" in files:
+                        conversations_json_path = os.path.join(root, "conversations.json")
+                        break
+                    elif "chat.json" in files:
+                        conversations_json_path = os.path.join(root, "chat.json")
+                        break
+                
+                if not conversations_json_path:
+                    task_statuses[task_id] = {"status": "error", "message": "Could not find 'conversations.json' or 'chat.json' in the zip file."}
+                    return
 
-        # Pass the raw JSON contents and the base path of extracted files to the importer
-        # The importer will now be responsible for parsing images using extracted_files_base_path
-        summary = import_chatgpt_json(json_contents, extracted_files_base_path)
-        return JSONResponse(content=summary)
+                with open(conversations_json_path, "r", encoding='utf-8') as f:
+                    json_contents = f.read()
+                
+                # This summary will eventually include number of chats, etc.
+                # Pass task_id and task_statuses to the importer for progress updates
+                summary = import_chatgpt_json(json_contents, extracted_files_base_path, task_id, task_statuses) 
+                
+                # Final status update after successful import
+                final_message = summary.get("message", "Processing completed successfully.")
+                if "error" in summary: # If importer returns an error field
+                    task_statuses[task_id] = {
+                        "status": "error", 
+                        "progress": task_statuses.get(task_id, {}).get("progress", 0), # Preserve last known progress
+                        "message": summary.get("error", "An error occurred during import.")
+                    }
+                else:
+                    task_statuses[task_id] = {
+                        "status": "completed", 
+                        "progress": 100, 
+                        "message": final_message
+                    }
 
-    except zipfile.BadZipFile:
-        raise HTTPException(status_code=400, detail="Invalid ZIP file.")
+            except zipfile.BadZipFile:
+                task_statuses[task_id] = {"status": "error", "progress": task_statuses.get(task_id, {}).get("progress", 0), "message": "Invalid ZIP file."}
+            except Exception as e:
+                task_statuses[task_id] = {"status": "error", "progress": task_statuses.get(task_id, {}).get("progress", 0), "message": f"Failed to process file: {str(e)}"}
+            finally:
+                if os.path.exists(temp_dir):
+                    shutil.rmtree(temp_dir)
+
+        background_tasks.add_task(process_zip_file_background, task_id, zip_path, temp_dir)
+
+        return JSONResponse(content={"task_id": task_id, "message": "File upload successful. Processing started in the background."})
+
     except Exception as e:
-        # Catch any other unexpected errors during processing
-        print(f"Error during ZIP upload and processing: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to process file: {e}")
-    finally:
-        # Clean up the temporary directory
-        if temp_dir and os.path.exists(temp_dir):
+        # Handle errors before starting background task (e.g., saving file failed)
+        if os.path.exists(temp_dir): # Clean up if temp_dir was created before error
             shutil.rmtree(temp_dir)
+        raise HTTPException(status_code=500, detail=f"Failed to initiate file processing: {e}")
 
+# Endpoint to get the status of a background task
+@app.get("/upload-status/{task_id}")
+async def get_upload_status(task_id: str):
+    status = task_statuses.get(task_id)
+    if not status:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return JSONResponse(content=status)
 
 # List available chats
 @app.get("/chats")

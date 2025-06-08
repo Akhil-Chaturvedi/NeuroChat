@@ -18,7 +18,7 @@ def get_unique_filename(directory, filename):
         counter += 1
     return new_filename
 
-def import_chatgpt_json(json_contents: str, extracted_files_base_path: str):
+def import_chatgpt_json(json_contents: str, extracted_files_base_path: str, task_id=None, task_statuses=None):
     try:
         data = json.loads(json_contents)
     except json.JSONDecodeError as e:
@@ -33,12 +33,13 @@ def import_chatgpt_json(json_contents: str, extracted_files_base_path: str):
     if not conversations: # Handle case where no conversations are found
         return {"message": "No conversations found in the uploaded file.", "chats": []}
 
+    total_convos = len(conversations)
     imported_chats = []
     total_messages = 0
 
     os.makedirs("storage/media", exist_ok=True)
 
-    for convo in conversations:
+    for idx, convo in enumerate(conversations):
         # Ensure 'convo' is a dictionary
         if not isinstance(convo, dict):
             print(f"Skipping invalid conversation entry: {convo}")
@@ -151,6 +152,18 @@ def import_chatgpt_json(json_contents: str, extracted_files_base_path: str):
             total_messages += 1
 
         imported_chats.append(title)
+
+        # Update progress
+        if task_id and task_statuses:
+            progress = int(((idx + 1) / total_convos) * 100)
+            current_status = task_statuses.get(task_id, {}) # Get current or default to empty
+            current_status["progress"] = progress
+            current_status["message"] = f"Processed {idx + 1} of {total_convos} conversations."
+            # Ensure the status is still 'processing' unless an error occurs or it completes
+            # This check helps prevent overwriting a final "error" or "completed" status if already set by main.py (though less likely here)
+            if current_status.get("status") != "error" and current_status.get("status") != "completed":
+                current_status["status"] = "processing"
+            task_statuses[task_id] = current_status
 
     return {
         "message": f"✅ Imported {len(imported_chats)} chats with {total_messages} messages (including media).",
