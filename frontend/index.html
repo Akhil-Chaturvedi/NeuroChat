@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NeuroChat - Infinite Memory AI</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <aside class="sidebar">
+      <div class="header">
+        <h1>🧠 NeuroChat</h1>
+        <p class="tagline">Your AI that never forgets.</p>
+      </div>
+
+      <section id="upload-section" class="card upload-card">
+        <h2>📥 Import History</h2>
+        <input type="file" id="fileInput" accept=".zip" />
+        <button onclick="uploadFile()">Upload ChatGPT Export</button>
+        <p id="uploadStatus" class="status-message"></p>
+      </section>
+
+      <section id="chat-list" class="card chat-list-card">
+        <h2>📂 Your Chats</h2>
+        <ul id="chatList">
+          <li class="placeholder">Loading chats...</li>
+        </ul>
+        <button class="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
+      </section>
+    </aside>
+
+    <main class="chat-area">
+      <div class="chat-header">
+        <h2 id="chatTitle">🗣️ Select a Chat or Start New</h2>
+      </div>
+      <div id="messages" class="messages-container">
+        <div class="welcome-message">
+          <p>Welcome to NeuroChat! Your personal AI with infinite memory.</p>
+          <p>Upload your ChatGPT conversation history to get started, or click "New Chat" to begin a fresh conversation.</p>
+        </div>
+      </div>
+      <div class="chat-input-area">
+        <input type="text" id="chatInput" placeholder="Type your message..." disabled>
+        <button id="sendMessageBtn" disabled>Send</button>
+      </div>
+    </main>
+  </div>
+
+  <script src="/static/script.js"></script>
+</body>
+</html>
