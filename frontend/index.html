@@ -27,10 +27,10 @@
                     <p id="uploadStatus"></p>
                     <hr>
                     <h3>API Key Configuration (Future)</h3>
-                    <input type="password" id="apiKeyInput" placeholder="Enter your API key">
-                    <button id="saveApiKeyBtn">Save API Key</button>
-                    <p class="api-key-note">Note: API Key saving not fully implemented yet.</p>
-                </div>
+                    <form id="apiKeyForm"> <input type="password" id="apiKeyInput" placeholder="Enter your API key">
+                        <p class="api-key-note">Note: API Key saving not fully implemented yet.</p>
+                        <button type="submit" id="saveApiKeyBtn">Save API Key</button>
+                    </form> </div>
             </div>
             <div id="chatList" class="chat-list">
                 <p class="loading-chats-message">Loading chats...</p>

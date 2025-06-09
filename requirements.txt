@@ -2,3 +2,6 @@ fastapi
 uvicorn
 chromadb
 python-dotenv
+pytest
+httpx
+python-multipart

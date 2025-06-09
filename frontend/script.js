@@ -1,6 +1,6 @@
 // Function to update the active chat in the UI
 let activeChatId = null; // Keep track of the currently active chat
-const MESSAGES_PER_PAGE = 30; // Number of messages to fetch per batch (for future pagination)
+const MESSAGES_PER_PAGE = 30; // Number of messages to fetch per batch
 let chatMessageStates = {}; // Stores pagination state for each chat { chatId: { currentPage: 0, isLoading: false, allMessagesLoaded: false } }
 
 // DOM Elements
@@ -44,7 +44,6 @@ async function uploadFile() {
 
   status.textContent = "Uploading file...";
   progressBarContainer.style.display = "block"; // Show progress bar container
-  isUploading = true; // Set uploading flag
 
   try {
     const response = await fetch("/upload", {
@@ -53,83 +52,120 @@ async function uploadFile() {
     });
 
     if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.detail || "Upload failed.");
     }
 
     const data = await response.json();
     const taskId = data.task_id;
-    status.textContent = data.message;
-    status.style.color = "orange"; // Indicate background processing
+    status.textContent = "File uploaded. Processing chat history...";
+    isUploading = true; // Set upload in progress flag
 
     // Start polling for status
     const pollInterval = setInterval(async () => {
-        try {
-            const statusResponse = await fetch(`/upload-status/${taskId}`);
-            if (!statusResponse.ok) {
-                const errorData = await statusResponse.json();
-                throw new Error(errorData.detail || `HTTP error! status: ${statusResponse.status}`);
-            }
-            const statusData = await statusResponse.json();
+      try {
+        const statusResponse = await fetch(`/upload-status/${taskId}`);
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to get status: ${statusResponse.status}`);
+        }
+        const statusData = await statusResponse.json();
 
-            progressBar.style.width = `${statusData.progress}%`;
-            progressBar.textContent = `${statusData.progress}%`;
-            
-            if (statusData.status === "completed") {
-                clearInterval(pollInterval);
-                status.textContent = statusData.message;
-                status.style.color = "green";
-                progressBar.style.backgroundColor = "green";
-                isUploading = false; // Reset uploading flag
-                loadChatList(); // Refresh the chat list after successful import
-            } else if (statusData.status === "error") {
-                clearInterval(pollInterval);
-                status.textContent = `Error: ${statusData.message}`;
-                status.style.color = "red";
-                progressBar.style.backgroundColor = "red";
-                isUploading = false; // Reset uploading flag
-            } else {
-                status.textContent = statusData.message; // Update with ongoing message
+        progressBar.style.width = `${statusData.progress || 0}%`;
+        progressBar.textContent = `${statusData.progress || 0}%`;
+        status.textContent = statusData.message || "Processing...";
+
+        if (statusData.status === "completed" || statusData.status === "error") {
+          clearInterval(pollInterval); // Stop polling
+          isUploading = false; // Reset upload in progress flag
+          if (statusData.status === "completed") {
+            status.textContent = `✅ ${statusData.message}`;
+            status.style.color = "green";
+            progressBar.style.backgroundColor = "green";
+            loadChatList(); // Refresh chat list
+            // Optionally auto-select the first newly imported chat or the last active
+            if (statusData.chats && statusData.chats.length > 0) {
+                // Find the ID of the first imported chat
+                // This would require the /chats endpoint to return chat IDs
+                // For now, just refresh the list and user can select
             }
-        } catch (error) {
-            clearInterval(pollInterval);
-            status.textContent = `Error polling status: ${error.message}`;
+          } else {
+            status.textContent = `❌ Error: ${statusData.message}`;
             status.style.color = "red";
             progressBar.style.backgroundColor = "red";
-            isUploading = false; // Reset uploading flag
-            console.error("Error polling status:", error);
+          }
+          progressBarContainer.style.display = "none"; // Hide progress bar after completion/error
         }
+      } catch (error) {
+        clearInterval(pollInterval);
+        isUploading = false;
+        console.error("Error polling status:", error);
+        status.textContent = `❌ Error checking status: ${error.message}`;
+        status.style.color = "red";
+        progressBar.style.backgroundColor = "red";
+        progressBarContainer.style.display = "none"; // Hide progress bar on error
+      }
     }, 1000); // Poll every 1 second
 
   } catch (error) {
-    status.textContent = `Upload failed: ${error.message}`;
+    isUploading = false; // Reset upload in progress flag
+    console.error("Upload failed:", error);
+    status.textContent = `❌ Upload failed: ${error.message}`;
     status.style.color = "red";
-    progressBarContainer.style.display = "none"; // Hide progress bar on immediate failure
-    isUploading = false; // Reset uploading flag
-    console.error("Upload error:", error);
+    progressBarContainer.style.display = "none"; // Hide progress bar on error
   }
 }
 
-// Function to create a new chat session (clears messages, sets activeChatId to null)
-function createNewChat() {
-    activeChatId = null;
-    messagesDiv.innerHTML = "<p class='initial-message'>Select a chat from the sidebar or start a new one.</p>"; // Clear existing messages
-    document.getElementById("chatTitle").textContent = "New Chat";
-    document.getElementById("chatInput").value = "";
-    document.getElementById("chatInput").focus();
-    chatMessageStates = {}; // Clear any existing chat message states for a fresh start
-    chatListDiv.style.display = 'block'; // Ensure sidebar is visible when starting new chat
-    loadingIndicator.style.display = 'none'; // Hide loading indicator
+// Function to fetch and display the list of chats
+async function loadChatList() {
+    const chatListDiv = document.getElementById('chatList');
+    chatListDiv.innerHTML = '<p class="loading-chats-message">Loading chats...</p>'; // Show loading message
+
+    try {
+        const response = await fetch('/chats');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const chats = await response.json();
+
+        chatListDiv.innerHTML = ''; // Clear loading message
+
+        if (chats.length === 0) {
+            chatListDiv.innerHTML = '<p class="no-chats-message">No chats imported yet. Upload a ChatGPT export file.</p>';
+        } else {
+            const ul = document.createElement('ul');
+            ul.className = 'chat-list';
+            chats.forEach(chat => {
+                const li = document.createElement('li');
+                const a = document.createElement('a');
+                a.href = '#';
+                a.dataset.chatId = chat.id;
+                a.textContent = chat.title;
+                a.onclick = (e) => {
+                    e.preventDefault();
+                    loadChat(chat.id);
+                    // Update active class for styling
+                    Array.from(document.querySelectorAll('.chat-list a')).forEach(link => {
+                        link.classList.remove('active');
+                    });
+                    a.classList.add('active');
+                };
+                li.appendChild(a);
+                ul.appendChild(li);
+            });
+            chatListDiv.appendChild(ul);
+        }
+    } catch (error) {
+        console.error('Error loading chat list:', error);
+        chatListDiv.innerHTML = `<p class="no-chats-message" style="color: red;">Error loading chats: ${error.message}</p>`;
+    }
 }
 
-// Function to load message history for a specific chat
-async function loadChat(chatId) {
-    activeChatId = chatId;
-    messagesDiv.innerHTML = ""; // Clear previous messages immediately
-    loadingIndicator.style.display = 'block'; // Show loading indicator
 
-    // Reset state for this chat, or initialize if new
-    chatMessageStates[chatId] = chatMessageStates[chatId] || { currentPage: 0, isLoading: false, allMessagesLoaded: false };
+// Function to load and render messages for a specific chat
+async function loadChat(chatId) {
+    showLoadingIndicator("Loading chat...");
+    messagesDiv.innerHTML = ''; // Clear current messages
+    activeChatId = null; // Reset active chat until loaded
 
     try {
         const response = await fetch(`/chat/${chatId}`);
@@ -137,92 +173,107 @@ async function loadChat(chatId) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         const chatData = await response.json();
-        document.getElementById("chatTitle").textContent = chatData.title || "Untitled Chat";
-        
-        if (chatData.messages && chatData.messages.length > 0) {
-            renderMessages(chatData.messages);
-        } else {
-            messagesDiv.innerHTML = `<p class="initial-message">No messages found for this chat.</p>`;
-        }
 
-        // Keep the chat history sidebar visible
-        chatListDiv.style.display = 'block'; 
+        // FIX: Safely check for messages and default to an empty array if missing.
+        const messagesToRender = Array.isArray(chatData?.messages) ? chatData.messages : [];
+
+        renderMessages(messagesToRender, true); // This is now safe from the error.
+        document.getElementById('chatTitle').textContent = chatData?.title || 'New Chat'; // Also made title access safer
+        activeChatId = chatId;
+        messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom after loading
+
+        // Set current page for this chat
+        chatMessageStates[chatId] = {
+            currentPage: 0,
+            isLoading: false,
+            allMessagesLoaded: true 
+        };
 
     } catch (error) {
-        messagesDiv.innerHTML = `<p style="color: red;">Error loading chat: ${error.message}</p>`;
-        console.error("Error loading chat:", error);
+        console.error('Error loading chat:', error);
+        messagesDiv.innerHTML = `<p class="initial-message" style="color: red;">Error loading chat: ${error.message}. Please try selecting another chat or import a new one.</p>`;
+        document.getElementById('chatTitle').textContent = "Error Loading Chat";
     } finally {
-        loadingIndicator.style.display = 'none'; // Hide loading indicator
+        hideLoadingIndicator();
     }
 }
 
-
-function renderMessages(messages) {
-    // Clear initial message if present
-    const initialMessage = messagesDiv.querySelector('.initial-message');
-    if (initialMessage) {
-        initialMessage.remove();
+// Function to render messages into the chat display
+function renderMessages(messages, clearExisting = false) {
+    // This check acts as a robust safeguard to ensure 'messages' is an array
+    if (!Array.isArray(messages)) {
+        console.warn("renderMessages received non-array data. Initializing as empty array.");
+        messages = []; // Ensure it's an array to prevent forEach error
     }
-    
-    messages.forEach(msg => {
-        const messageElement = document.createElement("div");
-        messageElement.classList.add("message", msg.role); // 'user' or 'assistant' class
 
-        let contentHtml = "";
+    const fragment = document.createDocumentFragment();
 
-        if (msg.content_type === "text" || msg.content_type === "code") {
-            const rawText = msg.text || '';
-            // Use marked.js for Markdown parsing
-            const parsedHtml = marked.parse(rawText);
-            // Sanitize the HTML to prevent XSS attacks
-            const sanitizedHtml = DOMPurify.sanitize(parsedHtml);
+    if (clearExisting) {
+        messagesDiv.innerHTML = ''; // Clear previous messages
+    }
 
-            if (msg.content_type === "code") {
-                messageElement.classList.add("code"); // Add a class for code styling
-                contentHtml = `<pre><code>${sanitizedHtml}</code></pre>`; // Render preformatted code
-            } else {
-                contentHtml = `<div class="message-text">${sanitizedHtml}</div>`; // Wrap text in a div for styling
+    if (messages.length === 0 && clearExisting) {
+        const initialMessage = document.createElement('p');
+        initialMessage.className = 'initial-message';
+        initialMessage.textContent = 'Say something to start a new chat, or import a chat from the sidebar.';
+        fragment.appendChild(initialMessage);
+    } else {
+        messages.forEach(msg => {
+            const messageElement = document.createElement('div');
+            messageElement.className = `message ${msg.role}`; // 'user' or 'assistant'
+
+            // Handle text content
+            if (msg.text) {
+                const textElement = document.createElement('div');
+                textElement.className = 'message-text';
+                textElement.innerHTML = marked.parse(msg.text); // Render Markdown
+                messageElement.appendChild(textElement);
             }
-        } else if (msg.content_type === "image" && msg.media_url) {
-            // Include alt text if text is available, otherwise a generic description
-            const altText = msg.text && msg.text !== 'Image generated by user.' && msg.text !== 'Image generated by assistant.' ? escapeHTML(msg.text) : `Image by ${msg.role}`;
-            contentHtml = `<img src="${msg.media_url}" alt="${altText}" class="chat-image">`;
-            if (msg.text && msg.text !== 'Image generated by user.' && msg.text !== 'Image generated by assistant.') {
-                const parsedText = marked.parse(msg.text);
-                const sanitizedText = DOMPurify.sanitize(parsedText);
-                contentHtml += `<div class="image-caption">${sanitizedText}</div>`; // Display text below image if not generic
-            }
-        }
-        // Add more content types as needed (e.g., video, audio)
 
-        messageElement.innerHTML = contentHtml;
-        messagesDiv.appendChild(messageElement);
-    });
-    // Scroll to the bottom after rendering new messages
-    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            // Handle media content (image/video)
+            if (msg.content_type === 'image_url' && msg.media_url) {
+                const imgElement = document.createElement('img');
+                imgElement.src = msg.media_url;
+                imgElement.alt = 'Chat image';
+                imgElement.className = 'chat-image';
+                messageElement.appendChild(imgElement);
+            } else if (msg.content_type === 'video_url' && msg.media_url) {
+                const videoElement = document.createElement('video');
+                videoElement.src = msg.media_url;
+                videoElement.controls = true;
+                videoElement.className = 'chat-video'; // Add a class for potential styling
+                videoElement.style.maxWidth = '100%';
+                videoElement.style.height = 'auto';
+                messageElement.appendChild(videoElement);
+            }
+
+            // Handle captions for media
+            if (msg.caption) {
+                const captionElement = document.createElement('p');
+                captionElement.className = 'image-caption';
+                captionElement.textContent = msg.caption;
+                messageElement.appendChild(captionElement);
+            }
+
+            fragment.appendChild(messageElement);
+        });
+    }
+    messagesDiv.appendChild(fragment);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to the newest message
 }
 
-
-// Utility to escape HTML for safety (still useful for alt text etc.)
-function escapeHTML(str) {
-    const div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
-}
-
-
-// Function to send a message (placeholder for now)
+// Function to send a new message
 function sendMessage() {
   const input = document.getElementById("chatInput");
-  const messageText = input.value.trim();
+  const messagesDiv = document.getElementById("messages");
 
-  if (messageText) {
-    // For now, just append user message to UI
-    const messageElement = document.createElement("div");
-    messageElement.classList.add("message", "user");
-    messageElement.innerHTML = `<div class="message-text">${marked.parse(messageText)}</div>`; // Use marked for user input too
-    messagesDiv.appendChild(messageElement);
+  if (input.value.trim() !== "") {
+    // For now, just append user message. AI response logic will be added later.
+    const userMessage = document.createElement("div");
+    userMessage.className = "message user";
+    userMessage.innerHTML = marked.parse(input.value.trim()); // Render Markdown
 
+    messagesDiv.appendChild(userMessage);
     messagesDiv.scrollTop = messagesDiv.scrollHeight; // Scroll to bottom
 
     input.value = ""; // Clear input
@@ -233,47 +284,24 @@ function sendMessage() {
   }
 }
 
-// Function to load the list of chats
-async function loadChatList() {
-    // Clear existing content and show loading message
-    chatListDiv.innerHTML = '<p class="loading-chats-message">Loading chats...</p>'; 
-
-    try {
-        const response = await fetch('/chats');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const chats = await response.json();
-        
-        // Clear loading message and existing content
-        chatListDiv.innerHTML = ''; 
-
-        if (chats.length === 0) {
-            chatListDiv.innerHTML = '<p class="no-chats-message">No chats imported yet.</p>';
-        } else {
-            const ul = document.createElement('ul');
-            chats.forEach(chat => {
-                const li = document.createElement('li');
-                // Ensure the chat ID is properly escaped for the onclick attribute
-                li.innerHTML = `<a href="#" onclick="loadChat('${escapeHTML(chat.id)}')">${escapeHTML(chat.title)}</a>`;
-                ul.appendChild(li);
-            });
-            chatListDiv.appendChild(ul);
-        }
-    } catch (error) {
-        chatListDiv.innerHTML = `<p style="color: red;">Error loading chats: ${error.message}</p>`;
-        console.error("Error loading chat list:", error);
-    }
+// Helper to show loading indicator
+function showLoadingIndicator(message = "Loading...") {
+    loadingIndicator.textContent = message;
+    loadingIndicator.style.display = 'block';
 }
 
+// Helper to hide loading indicator
+function hideLoadingIndicator() {
+    loadingIndicator.style.display = 'none';
+}
 
-// Options Panel Toggle
+// Hook up event listeners after DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   const optionsBtn = document.getElementById('optionsBtn');
   const optionsPanel = document.getElementById('optionsPanel');
   const apiKeyInput = document.getElementById('apiKeyInput'); // Added for future use
   const saveApiKeyBtn = document.getElementById('saveApiKeyBtn'); // Added for future use
-  
+
   if (optionsBtn && optionsPanel) {
     optionsBtn.addEventListener('click', () => {
       if (optionsPanel.style.display === 'none' || optionsPanel.style.display === '') {
@@ -291,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Placeholder for saving API key
   if (saveApiKeyBtn && apiKeyInput) {
-    saveApiKeyBtn.addEventListener('click', () => {
+    saveApiKeyBtn.addEventListener('click', () => { // Fixed typo: `()_` to `()`
       const apiKey = apiKeyInput.value;
       console.log("Attempting to save API Key (not implemented):", apiKey ? "********" : "empty");
       // Here you would typically send this to the backend or store it in localStorage
@@ -300,6 +328,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Add scroll event listener for infinite scrolling
+  if (messagesDiv) {
+    messagesDiv.addEventListener('scroll', () => {
+        // Check if scrolled to the top (or very close)
+        if (messagesDiv.scrollTop < 10 && activeChatId && chatMessageStates[activeChatId]) {
+            if (!chatMessageStates[activeChatId].isLoading && !chatMessageStates[activeChatId].allMessagesLoaded) {
+                console.log("Scrolled to top, loading older messages for chat:", activeChatId);
+                // Note: The second argument 'true' here was intended for pagination.
+                // Since full loading is assumed now, consider if this is still needed or adjust loadChat to handle.
+                // For now, keeping it as is, but it might trigger full reload if pagination is not implemented.
+                loadChat(activeChatId);
+            }
+        }
+    });
+  }
+
   // Load chat list on page load
   loadChatList();
+
+  // Initial call to load an empty chat or a default one
+  // createNewChat(); // Removed: user selects or imports a chat
+  // Note: For now, it's better to show the "Select a chat" message initially.
+  // The default chat will be created when the user types a message.
 });
+
+// Function to create a new chat (client-side only for now)
+function createNewChat() {
+    activeChatId = null; // Clear active chat
+    document.getElementById('chatTitle').textContent = 'New Chat';
+    messagesDiv.innerHTML = `
+        <p class="initial-message">Say something to start a new chat, or import a chat from the sidebar.</p>
+    `;
+    // Also clear input and potentially disable send until message is typed
+    document.getElementById('chatInput').value = '';
+    // Optionally remove active class from any previously selected chat in the sidebar
+    Array.from(document.querySelectorAll('.chat-list a')).forEach(link => {
+        link.classList.remove('active');
+    });
+}

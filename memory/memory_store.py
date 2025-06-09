@@ -1,6 +1,7 @@
 import chromadb
 import os
 import uuid
+from datetime import datetime
 
 CHROMA_PATH = "storage/chroma"
 COLLECTION_NAME = "memory"
@@ -20,10 +21,14 @@ def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text
         print("Error: ChromaDB collection not initialized.")
         return
 
+    # Use current timestamp for the message
+    message_timestamp = datetime.now().timestamp()
+
     metadata = {
         "chat_id": chat_id,
         "role": role,
-        "content_type": content_type # Store content type
+        "content_type": content_type, # Store content type
+        "message_timestamp": message_timestamp # Store message timestamp
     }
     if media_url: # Only add media_url if it's provided
         metadata["media_url"] = media_url
@@ -34,34 +39,53 @@ def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text
         ids=[f"{chat_id}_{role}_{uuid.uuid4().hex}"] # Use uuid4 for unique IDs
     )
 
-def get_messages_for_chat(chat_id: str):
+def get_messages_for_chat(chat_id: str, page: int = 1, page_size: int = 30):
     if not collection:
         print("Error: ChromaDB collection not initialized.")
-        return []
+        return {"messages": [], "total_messages_in_chat": 0, "page": page, "page_size": page_size}
 
-    results = collection.query(
-        query_texts=[" "],  # Dummy query to pull all relevant messages
-        n_results=1000, # Adjust as needed, or remove for all results if no limit is desired
-        where={"chat_id": chat_id}
+    # Fetch all messages for the chat_id.
+    # Using a high number for n_results to effectively get all messages.
+    # ChromaDB's default limit is 10 if n_results is not provided.
+    # Consider a more robust way if chat histories can exceed this significantly,
+    # though 5000 should cover most cases.
+    results = collection.get(
+        where={"chat_id": chat_id},
+        include=['metadatas', 'documents'] # Ensure we get both metadatas and documents
     )
 
-    messages = []
-    # Ensure results are iterated correctly, as they are often lists of lists
-    # Flatten the documents and metadatas lists
-    docs = results.get("documents", [])[0] if results.get("documents") else []
-    metas = results.get("metadatas", [])[0] if results.get("metadatas") else []
+    all_messages = []
+    docs = results.get("documents", [])
+    metas = results.get("metadatas", [])
 
-    # Reconstruct messages with full metadata
     for doc, meta in zip(docs, metas):
+        message_timestamp = meta.get("message_timestamp", 0) # Default to 0 if not present
         message = {
             "role": meta.get("role"),
             "text": doc,
-            "content_type": meta.get("content_type", "text"), # Default to text
-            "media_url": meta.get("media_url") # Retrieve media URL
+            "content_type": meta.get("content_type", "text"),
+            "media_url": meta.get("media_url"),
+            "message_timestamp": message_timestamp
         }
-        messages.append(message)
+        all_messages.append(message)
 
-    return messages
+    # Sort messages by timestamp in descending order (newest first)
+    # For messages lacking a timestamp (e.g. legacy data), they will be at the end.
+    all_sorted_messages = sorted(all_messages, key=lambda x: x.get('message_timestamp', 0), reverse=True)
+
+    total_messages_in_chat = len(all_sorted_messages)
+
+    # Implement pagination
+    start_index = (page - 1) * page_size
+    end_index = start_index + page_size
+    paginated_messages = all_sorted_messages[start_index:end_index]
+
+    return {
+        "messages": paginated_messages,
+        "total_messages_in_chat": total_messages_in_chat,
+        "page": page,
+        "page_size": page_size
+    }
 
 def save_changes():
     # PersistentClient automatically saves changes to disk,

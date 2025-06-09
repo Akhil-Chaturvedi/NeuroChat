@@ -10,6 +10,7 @@ import zipfile
 import tempfile
 import shutil
 import json # Import json for reading individual chat files
+from datetime import datetime # Ensure datetime is imported
 
 app = FastAPI()
 
@@ -53,7 +54,18 @@ async def upload_chatgpt(file: UploadFile = File(...), background_tasks: Backgro
             imported_chats_summary = []
             total_processed_messages = 0
             json_files_found = 0
-            processed_chat_ids = set() # To track chat IDs already processed in this session
+            processed_chat_ids = set() # To track chat IDs already processed in this session within the current ZIP
+            
+            # Load existing chat IDs from the system for global deduplication
+            try:
+                all_system_chats = list_chats()
+                existing_chat_ids = {chat['id'] for chat in all_system_chats}
+                print(f"[{task_id}] Loaded {len(existing_chat_ids)} existing chat IDs from system for deduplication.")
+            except Exception as e:
+                # If loading existing chats fails, log it but proceed without global deduplication for this run
+                print(f"[{task_id}] WARNING: Could not load existing chat IDs from system: {e}. Global deduplication might be affected for this import session.")
+                existing_chat_ids = set()
+
 
             try:
                 print(f"[{task_id}] Extracting ZIP file: {zip_path}")
@@ -93,12 +105,19 @@ async def upload_chatgpt(file: UploadFile = File(...), background_tasks: Backgro
                             from chat.chat_manager import generate_chat_id # Import here to avoid circular
                             potential_chat_id = generate_chat_id(temp_title, temp_create_time)
 
+                        # 1. Global Deduplication Check (against all chats in system)
+                        if potential_chat_id in existing_chat_ids:
+                            print(f"[{task_id}] SKIPPING {current_file_name}: Chat already exists in system (ID: {potential_chat_id}).")
+                            imported_chats_summary.append({"file": current_file_name, "status": "skipped", "message": "Chat already exists in system."})
+                            continue # Skip to next file
+                        
+                        # 2. In-Batch Deduplication Check (against chats processed in this ZIP file)
                         if potential_chat_id in processed_chat_ids:
                             print(f"[{task_id}] SKIPPING {current_file_name}: Already processed in this batch (ID: {potential_chat_id}).")
                             imported_chats_summary.append({"file": current_file_name, "status": "skipped", "message": "Already processed in this batch."})
                             continue # Skip to next file
 
-                        # If not already processed, proceed with full import
+                        # If not already processed globally or in this batch, proceed with full import
                         with open(chat_json_path, "r", encoding='utf-8') as f:
                             json_contents = f.read() # Read full content for importer
 
@@ -182,13 +201,25 @@ def get_chats():
 
 # Load a chat by ID
 @app.get("/chat/{chat_id}")
-def load_chat(chat_id: str):
-    print(f"Received GET /chat/{chat_id} request.")
-    chat_data = get_chat_by_id(chat_id)
+def load_chat(chat_id: str, page: int = 1, page_size: int = 30):
+    print(f"Received GET /chat/{chat_id} request with page: {page}, page_size: {page_size}.")
+    # Pass page and page_size to get_chat_by_id
+    chat_data = get_chat_by_id(chat_id, page=page, page_size=page_size)
+    
     if chat_data:
-        print(f"Found chat '{chat_data.get('title')}' with {len(chat_data.get('messages', []))} messages.")
+        # The structure of chat_data is now:
+        # {
+        #   "id": ..., "title": ..., "timestamp": ...,
+        #   "messages_page": { "messages": [], "total_messages_in_chat": ..., ... }
+        # }
+        total_messages = chat_data.get("messages_page", {}).get("total_messages_in_chat", 0)
+        current_page_messages_count = len(chat_data.get("messages_page", {}).get("messages", []))
+        print(f"Found chat '{chat_data.get('title')}'. Total messages: {total_messages}. Returning {current_page_messages_count} messages for page {page}.")
     else:
-        print(f"Chat with ID {chat_id} not found or no messages.")
+        print(f"Chat with ID {chat_id} not found.")
+        # If chat not found, get_chat_by_id returns None. FastAPI will handle this as a 404 if no response is returned or an exception is raised.
+        # To be explicit, we can raise HTTPException here.
+        raise HTTPException(status_code=404, detail=f"Chat with ID {chat_id} not found.")
     return chat_data
 
 if __name__ == "__main__":

@@ -1,13 +1,13 @@
 /* General styling */
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: sans-serif;
     margin: 0;
     padding: 0;
-    background-color: #f0f2f5;
-    color: #333;
     display: flex;
     height: 100vh;
     overflow: hidden; /* Prevent body scroll */
+    background-color: #f4f4f4;
+    color: #333;
 }
 
 .container {
@@ -18,14 +18,15 @@ body {
 
 /* Sidebar */
 .sidebar {
-    width: 280px;
-    background-color: #282c34;
-    color: #f8f8f2;
+    width: 250px;
+    background-color: #fff;
+    padding: 15px;
     display: flex;
     flex-direction: column;
-    padding: 15px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    flex-shrink: 0; /* Prevent sidebar from shrinking */
+    border-right: 1px solid #ddd;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+    flex-shrink: 0;
+    overflow-y: auto; /* Enable scrolling for chat list if it gets long */
 }
 
 .sidebar-header {
@@ -33,16 +34,18 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
 }
 
 .sidebar-header h2 {
     margin: 0;
     font-size: 1.5em;
-    color: var(--primary-color);
+    color: #333;
 }
 
 #newChatBtn {
-    background-color: var(--primary-color);
+    background-color: #007bff;
     color: white;
     border: none;
     padding: 8px 12px;
@@ -53,17 +56,19 @@ body {
 }
 
 #newChatBtn:hover {
-    background-color: #4a9dff;
+    background-color: #0056b3;
 }
 
 .options-container {
     margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 15px;
 }
 
 #optionsBtn {
-    background-color: #3a3f47;
-    color: #f8f8f2;
-    border: none;
+    background-color: #f0f0f0;
+    color: #333;
+    border: 1px solid #ccc;
     padding: 8px 12px;
     border-radius: 5px;
     cursor: pointer;
@@ -74,39 +79,39 @@ body {
 }
 
 #optionsBtn:hover {
-    background-color: #4a4f57;
+    background-color: #e0e0e0;
 }
 
 .options-panel {
-    background-color: #3a3f47;
+    background-color: #f9f9f9;
     padding: 15px;
     border-radius: 8px;
-    box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.1);
 }
 
 .options-panel h3 {
     margin-top: 0;
     font-size: 1.1em;
-    color: var(--primary-color);
-    border-bottom: 1px solid #4a4f57;
+    color: #555;
+    border-bottom: 1px solid #ddd;
     padding-bottom: 5px;
     margin-bottom: 10px;
 }
 
 .options-panel input[type="file"],
 .options-panel input[type="password"] {
-    width: calc(100% - 20px);
+    width: calc(100% - 22px); /* Account for padding and border */
     padding: 8px 10px;
     margin-bottom: 10px;
     border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #4a4f57;
-    color: #f8f8f2;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    color: #333;
     box-sizing: border-box;
 }
 
 .options-panel button {
-    background-color: var(--primary-color);
+    background-color: #28a745; /* Green for action */
     color: white;
     border: none;
     padding: 8px 15px;
@@ -118,42 +123,37 @@ body {
 }
 
 .options-panel button:hover {
-    background-color: #4a9dff;
+    background-color: #218838;
 }
 
 .options-panel hr {
     border: 0;
-    border-top: 1px dashed #555;
+    border-top: 1px dashed #ccc;
     margin: 15px 0;
 }
 
 .options-panel .api-key-note {
     font-size: 0.8em;
-    color: #bbb;
+    color: #888;
     margin-top: 5px;
 }
 
 .chat-list {
     flex-grow: 1;
-    overflow-y: auto;
-    padding-right: 5px; /* For scrollbar */
-    color: #bbb;
-}
-
-.chat-list ul {
     list-style: none;
     padding: 0;
     margin: 0;
+    color: #555;
 }
 
 .chat-list li a {
     display: block;
     padding: 10px;
-    color: #f8f8f2;
+    color: #333;
     text-decoration: none;
     border-radius: 5px;
     margin-bottom: 5px;
-    background-color: #3a3f47;
+    background-color: #f0f0f0;
     transition: background-color 0.2s ease, color 0.2s ease;
     white-space: nowrap;
     overflow: hidden;
@@ -161,14 +161,15 @@ body {
 }
 
 .chat-list li a:hover {
-    background-color: #4a4f57;
-    color: var(--primary-color);
+    background-color: #e5e5e5;
+    color: #007bff;
 }
 
 .loading-chats-message, .no-chats-message {
     text-align: center;
     padding: 20px;
-    color: #bbb;
+    color: #888;
+    font-style: italic;
 }
 
 /* Main Content */
@@ -177,18 +178,17 @@ body {
     display: flex;
     flex-direction: column;
     background-color: #ffffff;
-    border-left: 1px solid #e0e0e0;
     position: relative;
     overflow: hidden; /* Prevent main content scroll */
 }
 
 #chatTitle {
-    background-color: var(--primary-color);
-    color: white;
+    background-color: #e9ecef;
+    color: #333;
     padding: 15px 20px;
     margin: 0;
     font-size: 1.8em;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     text-align: center;
     flex-shrink: 0;
 }
@@ -201,21 +201,21 @@ body {
     flex-direction: column;
     gap: 15px;
     scroll-behavior: smooth;
-    background-color: #f9f9f9;
+    background-color: #fcfcfc;
 }
 
 .message {
-    max-width: 80%;
+    max-width: 75%; /* Slightly more space for messages */
     padding: 12px 18px;
     border-radius: 20px;
     line-height: 1.5;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
     word-wrap: break-word; /* Ensure long words break */
 }
 
 /* User Message Styles */
 .message.user {
-    background-color: var(--primary-color);
+    background-color: #007bff; /* Primary blue */
     color: white;
     align-self: flex-end; /* Align to the right */
     border-bottom-right-radius: 5px; /* Sharpen bottom-right corner */
@@ -237,13 +237,13 @@ body {
     padding: 50px;
 }
 
-/* Markdown and Code Formatting */
+/* Markdown and Code Formatting within messages */
 .message-text {
-    /* For text content */
+    /* Base styling for text content */
 }
 
 .message pre {
-    background-color: #eee;
+    background-color: #f0f0f0;
     padding: 10px;
     border-radius: 5px;
     overflow-x: auto; /* Enable horizontal scroll for long code lines */
@@ -275,7 +275,7 @@ body {
 }
 
 .message a {
-    color: var(--primary-color);
+    color: #007bff;
     text-decoration: underline;
 }
 
@@ -311,6 +311,7 @@ body {
     background-color: #ffffff;
     border-top: 1px solid #e0e0e0;
     flex-shrink: 0;
+    box-shadow: 0 -1px 3px rgba(0,0,0,0.05);
 }
 
 #chatInput {
@@ -320,16 +321,17 @@ body {
     border-radius: 25px;
     font-size: 1em;
     margin-right: 10px;
+    box-sizing: border-box; /* Include padding/border in element's total width/height */
 }
 
 #chatInput:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: #007bff;
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
 .chat-input-container button {
-    background-color: var(--primary-color);
+    background-color: #007bff;
     color: white;
     border: none;
     padding: 12px 20px;
@@ -340,7 +342,7 @@ body {
 }
 
 .chat-input-container button:hover {
-    background-color: #4a9dff;
+    background-color: #0056b3;
 }
 
 /* Progress Bar and Status */
@@ -355,7 +357,7 @@ body {
 #progressBar {
     width: 0%;
     height: 20px;
-    background-color: var(--primary-color);
+    background-color: #28a745; /* Green for success */
     color: white;
     text-align: center;
     line-height: 20px;
@@ -383,14 +385,6 @@ body {
     z-index: 1000;
 }
 
-
-/* Variables for theming */
-:root {
-    --primary-color: #007bff; /* Blue */
-    --secondary-color: #6c757d; /* Gray */
-    --success-color: #28a745; /* Green */
-    --danger-color: #dc3545; /* Red */
-}
 
 /* Scrollbar styling for Webkit browsers (Chrome, Safari, Edge) */
 .messages::-webkit-scrollbar,

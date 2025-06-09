@@ -56,20 +56,31 @@ def list_chats():
     chats.sort(key=lambda x: x.get('last_updated', x.get('timestamp', 0)), reverse=True)
     return chats
 
-def get_chat_by_id(chat_id: str):
-    """Retrieves a specific chat session and its messages."""
+def get_chat_by_id(chat_id: str, page: int = 1, page_size: int = 30):
+    """Retrieves a specific chat session and its messages with pagination."""
     chat_state = _load_chat_state()
     chat_meta = chat_state.get(chat_id)
 
     if chat_meta:
-        print(f"Fetching messages for chat ID: {chat_id}")
-        messages = get_messages_for_chat(chat_id) # This call needs to return structured messages
-        print(f"Found {len(messages)} messages for chat ID {chat_id}.")
+        print(f"Fetching messages for chat ID: {chat_id}, page: {page}, page_size: {page_size}")
+        # Call get_messages_for_chat with pagination parameters
+        messages_data = get_messages_for_chat(chat_id, page=page, page_size=page_size)
+        
+        # messages_data now contains:
+        # {
+        #     "messages": paginated_messages,
+        #     "total_messages_in_chat": total_messages_in_chat,
+        #     "page": page,
+        #     "page_size": page_size
+        # }
+        
+        print(f"Found {messages_data['total_messages_in_chat']} total messages for chat ID {chat_id}. Returning page {messages_data['page']}.")
+        
         return {
             "id": chat_meta["id"],
             "title": chat_meta["title"],
-            "timestamp": chat_meta["timestamp"],
-            "messages": messages # This should be a list of message dictionaries
+            "timestamp": chat_meta["timestamp"], # This is chat creation timestamp
+            "messages_page": messages_data # Embed the paginated messages and info
         }
     print(f"Chat metadata not found for ID: {chat_id}")
     return None # Chat not found or no metadata
