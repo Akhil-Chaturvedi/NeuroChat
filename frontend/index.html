@@ -1,73 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NeuroChat - Infinite Memory AI</title>
-  <link rel="stylesheet" href="/static/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuroChat</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.3.6/dist/purify.min.js"></script>
 </head>
 <body>
-  <div class="container">
-    <aside class="sidebar">
-      <div class="header">
-        <h1>🧠 NeuroChat</h1>
-        <p class="tagline">Your AI that never forgets.</p>
-      </div>
-
-      <section id="chat-list" class="card chat-list-card">
-        <h2>📂 Your Chats</h2>
-        <ul id="chatList">
-          <li class="placeholder">Loading chats...</li>
-        </ul>
-        <button class="new-chat-btn" onclick="createNewChat()">+ New Chat</button>
-      </section>
-
-      <button id="optionsBtn">⚙️ Options</button> 
-      
-      <div id="optionsPanel" class="card"> <!-- display: none; is handled by CSS -->
-        <h2>⚙️ Options</h2>
-        <div>
-          <label for="apiKeyInput">API Key:</label>
-          <input type="password" id="apiKeyInput" placeholder="Enter your API key">
-          <button id="saveApiKeyBtn">Save Key</button>
-        </div>
-        
-        <hr style="border-color: var(--border-color); margin-top: 20px; margin-bottom: 20px;">
-
-        <section id="upload-section" class="upload-card"> <!-- Removed 'card' class, using 'upload-card' for specific styling if needed -->
-          <h2>📥 Import History</h2>
-          <input type="file" id="fileInput" accept=".zip" />
-          <button onclick="uploadFile()">Upload ChatGPT Export</button>
-          <p id="uploadStatus" class="status-message"></p>
-          <div id="progressBarContainer" style="width: 100%; background-color: #e0e0e0; border-radius: 4px; display: none; margin-top: 5px;">
-            <div id="progressBar" style="width: 0%; height: 20px; background-color: var(--primary-color); border-radius: 4px; text-align: center; color: white; line-height: 20px;">
-              0%
+    <div class="container">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>NeuroChat</h2>
+                <button id="newChatBtn">New Chat</button>
             </div>
-          </div>
-        </section>
-      </div>
-
-    </aside>
-
-    <main class="chat-area">
-      <div class="chat-header">
-        <h2 id="chatTitle">🗣️ Select a Chat or Start New</h2>
-      </div>
-      <div id="messages" class="messages-container">
-        <div id="loadingIndicator" style="display:none; text-align:center; padding:10px; color: var(--light-text-color);">Loading older messages...</div>
-        <div class="welcome-message">
-          <p>Welcome to NeuroChat! Your personal AI with infinite memory.</p>
-          <p>Upload your ChatGPT conversation history to get started, or click "New Chat" to begin a fresh conversation.</p>
+            <div class="options-container">
+                <button id="optionsBtn">Options</button>
+                <div id="optionsPanel" class="options-panel" style="display: none;">
+                    <h3>Upload Chat History (ZIP)</h3>
+                    <input type="file" id="fileInput" accept=".zip">
+                    <button onclick="uploadFile()">Upload</button>
+                    <div id="progressBarContainer" style="display: none;">
+                        <div id="progressBar">0%</div>
+                    </div>
+                    <p id="uploadStatus"></p>
+                    <hr>
+                    <h3>API Key Configuration (Future)</h3>
+                    <input type="password" id="apiKeyInput" placeholder="Enter your API key">
+                    <button id="saveApiKeyBtn">Save API Key</button>
+                    <p class="api-key-note">Note: API Key saving not fully implemented yet.</p>
+                </div>
+            </div>
+            <div id="chatList" class="chat-list">
+                <p class="loading-chats-message">Loading chats...</p>
+            </div>
         </div>
-      </div>
-      <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="Type your message..." disabled>
-        <button id="sendMessageBtn" disabled>Send</button>
-      </div>
-    </main>
-  </div>
+        <div class="main-content">
+            <h1 id="chatTitle">Welcome to NeuroChat</h1>
+            <div id="messages" class="messages">
+                <p class="initial-message">Select a chat from the sidebar or start a new one.</p>
+            </div>
+            <div id="loadingIndicator" class="loading-indicator" style="display: none;">
+                Loading messages...
+            </div>
+            <div class="chat-input-container">
+                <input type="text" id="chatInput" placeholder="Type a message...">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
 
-  <script src="/static/script.js"></script>
+    <script src="/static/script.js"></script>
 </body>
 </html>

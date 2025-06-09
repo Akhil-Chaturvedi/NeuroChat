@@ -1,435 +1,428 @@
-:root {
-    /* Dark Theme Colors */
-    --primary-color: #6ba2ff; /* Brighter blue for dark mode */
-    --secondary-color: #a0b4c9; /* Lighter grey for secondary text */
-    --background-color: #1a1a1a; /* Very dark grey/black for background */
-    --card-background: #2c2c2c; /* Dark grey for cards */
-    --border-color: #444444; /* Mid-grey for borders */
-    --text-color: #e0e0e0; /* Light grey/off-white for main text */
-    --light-text-color: #b0b0b0; /* Slightly darker light text */
-    --shadow-light: rgba(255, 255, 255, 0.05); /* Lighter shadow for dark bg */
-    --shadow-medium: rgba(255, 255, 255, 0.1); /* Lighter shadow for dark bg */
-    --user-bubble-bg: #00509e; /* Darker, distinct blue for user */
-    --ai-bubble-bg: #3a3a3a; /* Dark grey for AI */
-    --font-inter: 'Inter', sans-serif;
-    --code-bg: #36454F; /* Charcoal for code background */
-    --code-text: #e0e0e0; /* Light text for code */
-}
-
+/* General styling */
 body {
-    font-family: var(--font-inter);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 0;
-    background-color: var(--background-color);
-    color: var(--text-color);
-    line-height: 1.6;
-    overflow-x: hidden;
+    background-color: #f0f2f5;
+    color: #333;
+    display: flex;
+    height: 100vh;
+    overflow: hidden; /* Prevent body scroll */
 }
 
 .container {
-    /* display: grid; removed for fixed sidebar */
-    /* grid-template-columns: 300px 1fr; */
-    min-height: 100vh;
-    /* box-shadow: 0 0 20px var(--shadow-medium); */ /* Shadow might not be desired on container anymore */
-    /* border-radius: 8px; */ /* Radius might not be desired on container anymore */
-    /* overflow: hidden; */ /* Can interfere with fixed positioning or shadows on children */
-}
-
-/* Sidebar Styling */
-.sidebar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 300px; /* Explicit width for fixed sidebar */
-    height: 100vh;
-    background-color: #252d38; /* Slightly darker than card-background */
-    color: var(--text-color); /* Use main text color */
-    padding: 20px;
     display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--border-color); /* Use themed border color */
-    box-sizing: border-box; /* Include padding in width */
-    z-index: 100; /* Ensure sidebar is on top */
-    overflow-y: auto; /* Allow sidebar itself to scroll if content exceeds viewport */
-}
-
-.sidebar .header {
-    margin-bottom: 30px;
-    text-align: center;
-}
-
-.sidebar h1 {
-    font-size: 2.2em;
-    margin-bottom: 5px;
-    font-weight: 700;
-}
-
-.sidebar .tagline {
-    font-size: 0.9em;
-    color: var(--light-text-color); /* Use light text color */
-}
-
-.card {
-    background-color: var(--card-background);
-    border-radius: 8px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 15px var(--shadow-light);
-    color: var(--text-color); /* Ensure text is readable on dark card */
-}
-
-.card h2 {
-    font-size: 1.2em;
-    margin-top: 0;
-    margin-bottom: 15px;
-    color: var(--primary-color);
-    font-weight: 600;
-}
-
-/* Upload Section (now inside Options Panel) */
-.upload-card {
-    /* background-color: #2f3b4c; /* Removed - will use parent card's bg */
-    /* border: 1px solid var(--border-color); /* Removed - will use parent card's border/shadow */
-    padding: 0; /* Remove padding if it was part of .card, or adjust as needed */
-    margin-bottom: 0; /* Remove margin if it was part of .card */
-    box-shadow: none; /* Remove shadow if it was part of .card */
-}
-
-/* Ensure h2 within the moved upload-section has some space if needed, though <hr> handles some */
-#optionsPanel #upload-section h2 {
-    margin-top: 0; /* Reset top margin as <hr> provides it */
-    /* color: var(--text-color); /* Ensure title color is consistent if needed */
-}
-
-#fileInput {
-    display: block;
     width: 100%;
-    margin-bottom: 10px;
-    padding: 8px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    background-color: var(--card-background); /* Use card background */
-    color: var(--text-color); /* Ensure text is visible */
+    height: 100%;
 }
 
-button {
-    padding: 10px 18px;
-    background-color: var(--primary-color);
-    color: #ffffff; /* Explicitly white for buttons for contrast */
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 1em;
-    font-weight: 600;
-    transition: background-color 0.3s ease, transform 0.2s ease;
-    width: 100%; /* Make buttons full width in cards */
-}
-
-button:hover {
-    background-color: #5a8dec; /* Lighter shade for hover */
-    transform: translateY(-1px);
-}
-
-button:active {
-    transform: translateY(0);
-}
-
-.status-message {
-    font-size: 0.9em;
-    margin-top: 10px;
-    color: var(--secondary-color);
-}
-
-/* Chat List */
-.chat-list-card {
-    flex-grow: 1; /* Allows it to take up remaining space */
+/* Sidebar */
+.sidebar {
+    width: 280px;
+    background-color: #282c34;
+    color: #f8f8f2;
     display: flex;
     flex-direction: column;
+    padding: 15px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    flex-shrink: 0; /* Prevent sidebar from shrinking */
 }
 
-#chatList {
+.sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--primary-color);
+}
+
+#newChatBtn {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+}
+
+#newChatBtn:hover {
+    background-color: #4a9dff;
+}
+
+.options-container {
+    margin-bottom: 20px;
+}
+
+#optionsBtn {
+    background-color: #3a3f47;
+    color: #f8f8f2;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 10px;
+    transition: background-color 0.2s ease;
+}
+
+#optionsBtn:hover {
+    background-color: #4a4f57;
+}
+
+.options-panel {
+    background-color: #3a3f47;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+}
+
+.options-panel h3 {
+    margin-top: 0;
+    font-size: 1.1em;
+    color: var(--primary-color);
+    border-bottom: 1px solid #4a4f57;
+    padding-bottom: 5px;
+    margin-bottom: 10px;
+}
+
+.options-panel input[type="file"],
+.options-panel input[type="password"] {
+    width: calc(100% - 20px);
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    border: 1px solid #555;
+    background-color: #4a4f57;
+    color: #f8f8f2;
+    box-sizing: border-box;
+}
+
+.options-panel button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.2s ease;
+    margin-right: 10px;
+}
+
+.options-panel button:hover {
+    background-color: #4a9dff;
+}
+
+.options-panel hr {
+    border: 0;
+    border-top: 1px dashed #555;
+    margin: 15px 0;
+}
+
+.options-panel .api-key-note {
+    font-size: 0.8em;
+    color: #bbb;
+    margin-top: 5px;
+}
+
+.chat-list {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 5px; /* For scrollbar */
+    color: #bbb;
+}
+
+.chat-list ul {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 300px; /* Limit height and make scrollable */
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    margin-bottom: 15px;
-    background-color: var(--card-background); /* Use card background */
 }
 
-#chatList li {
-    padding: 12px 15px;
-    border-bottom: 1px solid var(--border-color);
-    cursor: pointer;
-    font-size: 0.95em;
-    color: var(--text-color);
-    transition: background-color 0.2s ease, color 0.2s ease;
-}
-
-#chatList li:last-child {
-    border-bottom: none;
-}
-
-#chatList li:hover {
-    background-color: var(--primary-color);
-    color: #ffffff; /* Explicitly white for hover state */
-}
-
-#chatList li.active {
-    background-color: var(--primary-color);
-    color: #ffffff; /* Explicitly white for active state */
-    font-weight: 600;
-}
-
-.new-chat-btn {
-    background-color: #3ba55d; /* Adjusted green for dark mode */
-}
-
-.new-chat-btn:hover {
-    background-color: #328a4c; /* Darker green for hover */
-}
-
-/* Chat Area Styling */
-.chat-area {
-    margin-left: 300px; /* Offset by sidebar width */
-    display: flex;
-    flex-direction: column;
-    padding: 20px;
-    box-sizing: border-box;
-    background-color: var(--background-color); /* Use main background for chat area */
-    height: 100vh; /* Ensure chat area takes full viewport height */
-    overflow-y: hidden; /* Prevent double scrollbars, messages-container handles its own scroll */
-}
-
-.chat-header {
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-.chat-header h2 {
-    font-size: 1.8em;
-    color: var(--primary-color);
-    font-weight: 600;
-}
-
-.messages-container {
-    flex-grow: 1; /* Takes up available space */
-    overflow-y: auto;
+.chat-list li a {
+    display: block;
     padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    background-color: var(--card-background); /* Use card background for messages container */
+    color: #f8f8f2;
+    text-decoration: none;
+    border-radius: 5px;
+    margin-bottom: 5px;
+    background-color: #3a3f47;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-list li a:hover {
+    background-color: #4a4f57;
+    color: var(--primary-color);
+}
+
+.loading-chats-message, .no-chats-message {
+    text-align: center;
+    padding: 20px;
+    color: #bbb;
+}
+
+/* Main Content */
+.main-content {
+    flex-grow: 1;
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Space between messages */
-    margin-bottom: 20px;
+    background-color: #ffffff;
+    border-left: 1px solid #e0e0e0;
+    position: relative;
+    overflow: hidden; /* Prevent main content scroll */
 }
 
-.welcome-message {
+#chatTitle {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 15px 20px;
+    margin: 0;
+    font-size: 1.8em;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     text-align: center;
-    color: var(--secondary-color);
-    margin-top: 50px;
-    font-style: italic;
+    flex-shrink: 0;
 }
 
-.welcome-message p {
-    margin-bottom: 10px;
+.messages {
+    flex-grow: 1;
+    padding: 20px;
+    overflow-y: auto; /* Enable scrolling for messages */
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    scroll-behavior: smooth;
+    background-color: #f9f9f9;
 }
 
-/* Chat Bubbles */
-.message-bubble {
+.message {
     max-width: 80%;
     padding: 12px 18px;
     border-radius: 20px;
-    font-size: 0.95em;
-    line-height: 1.4;
-    position: relative;
+    line-height: 1.5;
     box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     word-wrap: break-word; /* Ensure long words break */
-    white-space: pre-wrap; /* Preserve whitespace and line breaks for text */
 }
 
-.user-message {
-    background-color: var(--user-bubble-bg);
+/* User Message Styles */
+.message.user {
+    background-color: var(--primary-color);
+    color: white;
     align-self: flex-end; /* Align to the right */
-    border-bottom-right-radius: 5px; /* Sharpen corner for user */
-    color: #ffffff; /* Ensure text is white on dark blue bubble */
+    border-bottom-right-radius: 5px; /* Sharpen bottom-right corner */
 }
 
-.assistant-message {
-    background-color: var(--ai-bubble-bg);
+/* Assistant Message Styles */
+.message.assistant {
+    background-color: #e0e0e0;
+    color: #333;
     align-self: flex-start; /* Align to the left */
-    border-bottom-left-radius: 5px; /* Sharpen corner for AI */
-    color: var(--text-color); /* Use general text color for AI bubbles */
+    border-bottom-left-radius: 5px; /* Sharpen bottom-left corner */
 }
 
-/* Styling for images within message bubbles */
-.message-bubble img {
-    max-width: 100%; /* Make image fit within the bubble */
-    height: auto; /* Maintain aspect ratio */
-    border-radius: 8px; /* Slightly rounded corners for images */
-    display: block; /* Remove extra space below image */
-    margin-top: 5px; /* Space between text and image if text is present */
-    margin-bottom: 5px; /* Space between image and text if text is present */
+/* Initial Message Style */
+.initial-message {
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    padding: 50px;
 }
 
-/* Styling for code blocks within message bubbles */
-.message-bubble pre {
-    background-color: var(--code-bg);
-    color: var(--code-text);
-    padding: 10px 15px;
+/* Markdown and Code Formatting */
+.message-text {
+    /* For text content */
+}
+
+.message pre {
+    background-color: #eee;
+    padding: 10px;
     border-radius: 5px;
-    overflow-x: auto; /* Enable horizontal scroll for long lines */
-    font-family: 'Consolas', 'Monaco', 'Lucida Console', monospace;
+    overflow-x: auto; /* Enable horizontal scroll for long code lines */
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
     font-size: 0.9em;
-    margin: 5px 0; /* Space around code block */
+    white-space: pre-wrap; /* Ensure pre-formatted text wraps */
+    word-break: break-all; /* Break long words in code */
 }
 
-.message-bubble code {
-    white-space: pre-wrap; /* Preserve line breaks and spaces */
+.message code {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    background-color: #f5f5f5;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.9em;
 }
+
+.message pre code {
+    padding: 0;
+    background-color: transparent;
+}
+
+.message strong {
+    font-weight: bold;
+}
+
+.message em {
+    font-style: italic;
+}
+
+.message a {
+    color: var(--primary-color);
+    text-decoration: underline;
+}
+
+.message ul, .message ol {
+    margin-left: 20px;
+    padding-left: 0;
+}
+
+.message p {
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.chat-image {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 5px 0; /* Add some space around the image */
+    border-radius: 8px;
+}
+
+.image-caption {
+    font-size: 0.85em;
+    color: #555;
+    margin-top: 5px;
+}
+
 
 /* Chat Input Area */
-.chat-input-area {
+.chat-input-container {
     display: flex;
-    gap: 10px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
+    padding: 15px 20px;
+    background-color: #ffffff;
+    border-top: 1px solid #e0e0e0;
+    flex-shrink: 0;
 }
 
 #chatInput {
     flex-grow: 1;
     padding: 12px 15px;
-    border: 1px solid var(--border-color);
+    border: 1px solid #ccc;
     border-radius: 25px;
     font-size: 1em;
-    outline: none;
-    transition: border-color 0.3s ease;
-    background-color: var(--card-background); /* Darker input background */
-    color: var(--text-color); /* Light text for input */
+    margin-right: 10px;
 }
 
 #chatInput:focus {
+    outline: none;
     border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
-#sendMessageBtn {
+.chat-input-container button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
     padding: 12px 20px;
     border-radius: 25px;
-    min-width: 100px;
-    color: #ffffff; /* Ensure button text is white */
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
 }
 
-#sendMessageBtn:disabled {
-    background-color: #555555; /* Darker disabled state */
-    color: #aaaaaa; /* Lighter text for disabled state */
-    cursor: not-allowed;
+.chat-input-container button:hover {
+    background-color: #4a9dff;
 }
 
-/* Options Panel Styling */
-#optionsBtn {
-    /* Inherits general button styling which is already curved */
-    /* Adding specific margin if needed, though already handled inline for now */
-    margin-top: 15px; /* Match inline style for consistency */
-    background-color: var(--secondary-color); /* Distinct color for options button */
-}
-
-#optionsBtn:hover {
-    background-color: #8a9bb1; /* Lighter shade of secondary for hover */
-}
-
-#optionsPanel {
-    display: none; /* Hidden by default, controlled by JS */
-    margin-top: 10px; /* Match inline style for consistency */
-    /* Inherits .card styling for background, padding, border-radius, box-shadow */
-}
-
-#optionsPanel h2 {
-    /* Inherits .card h2 styling */
-    margin-bottom: 20px; /* More space after title in options */
-}
-
-#optionsPanel label {
-    display: block;
-    margin-bottom: 8px; /* Increased margin for label */
-    font-weight: 500;
-    color: var(--light-text-color);
-}
-
-#optionsPanel input[type="password"],
-#optionsPanel input[type="text"] { /* General input styling within options */
-    width: 100%; /* Take full width of parent */
-    padding: 10px;
-    margin-bottom: 15px; /* More space after input */
-    border: 1px solid var(--border-color);
+/* Progress Bar and Status */
+#progressBarContainer {
+    width: 100%;
+    background-color: #e0e0e0;
     border-radius: 5px;
-    background-color: var(--background-color); /* Darker than card for contrast */
-    color: var(--text-color);
-    box-sizing: border-box; /* Ensure padding doesn't expand it beyond 100% */
+    overflow: hidden;
+    margin-top: 10px;
 }
 
-#optionsPanel button {
-    /* Inherits general button styling */
-    /* width: 100%; is already default for buttons in cards */
-    background-color: var(--primary-color); /* Can be same as primary or different */
+#progressBar {
+    width: 0%;
+    height: 20px;
+    background-color: var(--primary-color);
+    color: white;
+    text-align: center;
+    line-height: 20px;
+    font-size: 0.8em;
+    transition: width 0.3s ease;
+    border-radius: 5px;
 }
 
-#optionsPanel button:hover {
-    background-color: #5a8dec; /* Consistent hover as other primary buttons */
+#uploadStatus {
+    font-size: 0.9em;
+    margin-top: 10px;
+    text-align: center;
+}
+
+.loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    z-index: 1000;
 }
 
 
-/* Basic Responsiveness */
-@media (max-width: 768px) {
-    .container {
-        /* grid-template-columns: 1fr; /* No longer applicable */
-    }
-
-    .sidebar {
-        /* For smaller screens, we might want the sidebar to be toggleable or hidden by default */
-        /* For now, let's reduce its width or handle it differently if it becomes an issue */
-        width: 100%; /* Full width, would hide chat area or need toggle */
-        height: auto; /* Adjust height as needed */
-        position: static; /* Revert to static for simple mobile layout */
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
-        /* padding: 15px; */ /* Padding is already set */
-    }
-
-    .sidebar .header {
-        margin-bottom: 20px;
-    }
-
-    .chat-area {
-        margin-left: 0; /* Remove margin when sidebar is static/full-width */
-        padding: 15px;
-        height: auto; /* Allow chat area to define its height */
-    }
-
-    .message-bubble {
-        max-width: 90%;
-    }
+/* Variables for theming */
+:root {
+    --primary-color: #007bff; /* Blue */
+    --secondary-color: #6c757d; /* Gray */
+    --success-color: #28a745; /* Green */
+    --danger-color: #dc3545; /* Red */
 }
 
-@media (max-width: 480px) {
-    .sidebar h1 {
-        font-size: 1.8em;
-    }
+/* Scrollbar styling for Webkit browsers (Chrome, Safari, Edge) */
+.messages::-webkit-scrollbar,
+.chat-list::-webkit-scrollbar {
+    width: 8px;
+    height: 8px; /* For horizontal scrollbars if needed */
+}
 
-    .chat-header h2 {
-        font-size: 1.5em;
-    }
+.messages::-webkit-scrollbar-track,
+.chat-list::-webkit-scrollbar-track {
+    background: #f1f1f1; /* Light track background */
+    border-radius: 10px;
+}
 
-    button {
-        padding: 8px 12px;
-        font-size: 0.9em;
-    }
+.messages::-webkit-scrollbar-thumb,
+.chat-list::-webkit-scrollbar-thumb {
+    background: #888; /* Darker thumb color */
+    border-radius: 10px;
+}
 
-    #chatInput {
-        padding: 10px 12px;
-    }
+.messages::-webkit-scrollbar-thumb:hover,
+.chat-list::-webkit-scrollbar-thumb:hover {
+    background: #555; /* Even darker on hover */
+}
+
+/* For Firefox */
+.messages {
+    scrollbar-width: thin; /* "auto" or "none" */
+    scrollbar-color: #888 #f1f1f1; /* thumb color track color */
+}
+
+.chat-list {
+    scrollbar-width: thin;
+    scrollbar-color: #888 #f1f1f1;
 }

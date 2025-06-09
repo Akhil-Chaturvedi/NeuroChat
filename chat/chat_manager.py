@@ -1,43 +1,75 @@
 import json
 import os
+import hashlib
 from datetime import datetime
+from memory.memory_store import get_messages_for_chat
 
-CHAT_STATE_PATH = "storage/chat_state.json"
+# Define the path for the chat state file
+CHAT_STATE_FILE = "storage/chat_state.json"
 
-# Ensure state file exists
-if not os.path.exists(CHAT_STATE_PATH):
-    with open(CHAT_STATE_PATH, "w") as f:
-        json.dump([], f)
+def generate_chat_id(title: str, timestamp: float) -> str:
+    """Generates a consistent chat ID based on title and creation timestamp."""
+    # Use hashlib.md5 for a consistent, short hash
+    chat_id_raw = f"{title}-{timestamp}"
+    return hashlib.md5(chat_id_raw.encode('utf-8')).hexdigest()
 
-def create_chat_session(chat_id, title, timestamp=None):
-    timestamp = timestamp or datetime.now().timestamp()
-    with open(CHAT_STATE_PATH, "r") as f:
-        state = json.load(f)
+def _load_chat_state():
+    """Loads the chat state from the JSON file."""
+    if os.path.exists(CHAT_STATE_FILE):
+        with open(CHAT_STATE_FILE, "r", encoding='utf-8') as f:
+            try:
+                state = json.load(f)
+                # IMPORTANT FIX: Ensure the loaded state is a dictionary
+                if not isinstance(state, dict):
+                    print(f"WARNING: {CHAT_STATE_FILE} content is not a dictionary. Overwriting with empty state.")
+                    return {} # Return empty state if content is not a dict
+                return state
+            except json.JSONDecodeError:
+                print(f"WARNING: {CHAT_STATE_FILE} is corrupted. Starting with empty state.")
+                return {} # Return empty state if file is corrupted
+    return {}
 
-    # Avoid duplicates
-    if any(c["chat_id"] == chat_id for c in state):
-        return
+def _save_chat_state(state):
+    """Saves the chat state to the JSON file."""
+    os.makedirs(os.path.dirname(CHAT_STATE_FILE), exist_ok=True) # Ensure directory exists
+    with open(CHAT_STATE_FILE, "w", encoding='utf-8') as f:
+        json.dump(state, f, indent=4, ensure_ascii=False)
 
-    state.append({
-        "chat_id": chat_id,
+def create_chat_session(chat_id: str, title: str, timestamp: float):
+    """Creates or updates a chat session in the chat state."""
+    chat_state = _load_chat_state()
+    chat_state[chat_id] = {
+        "id": chat_id,
         "title": title,
-        "timestamp": timestamp
-    })
-
-    with open(CHAT_STATE_PATH, "w") as f:
-        json.dump(state, f, indent=2)
+        "timestamp": timestamp,
+        "last_updated": datetime.now().timestamp() # Track last update
+    }
+    _save_chat_state(chat_state)
+    print(f"Chat session '{title}' ({chat_id}) created/updated.")
 
 def list_chats():
-    with open(CHAT_STATE_PATH, "r") as f:
-        state = json.load(f)
+    """Lists all available chat sessions, sorted by last updated."""
+    chat_state = _load_chat_state()
+    # Convert to list of dicts for easier sorting and filtering
+    chats = list(chat_state.values())
+    # Sort by 'last_updated' or 'timestamp' (creation time) descending
+    chats.sort(key=lambda x: x.get('last_updated', x.get('timestamp', 0)), reverse=True)
+    return chats
 
-    # Sort: newest first
-    return sorted(state, key=lambda x: x["timestamp"], reverse=True)
+def get_chat_by_id(chat_id: str):
+    """Retrieves a specific chat session and its messages."""
+    chat_state = _load_chat_state()
+    chat_meta = chat_state.get(chat_id)
 
-def get_chat_by_id(chat_id):
-    from memory.memory_store import get_messages_for_chat
-    messages = get_messages_for_chat(chat_id)
-    return {
-        "chat_id": chat_id,
-        "messages": messages
-    }
+    if chat_meta:
+        print(f"Fetching messages for chat ID: {chat_id}")
+        messages = get_messages_for_chat(chat_id) # This call needs to return structured messages
+        print(f"Found {len(messages)} messages for chat ID {chat_id}.")
+        return {
+            "id": chat_meta["id"],
+            "title": chat_meta["title"],
+            "timestamp": chat_meta["timestamp"],
+            "messages": messages # This should be a list of message dictionaries
+        }
+    print(f"Chat metadata not found for ID: {chat_id}")
+    return None # Chat not found or no metadata
