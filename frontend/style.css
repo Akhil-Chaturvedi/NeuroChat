@@ -84,14 +84,24 @@ body {
 }
 
 .chat-history li {
-    padding: 8px 0;
+    padding: 8px 12px;
     cursor: pointer;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 14px;
+    border-radius: 6px;
+    transition: background-color 0.2s;
 }
 
+.chat-history li:hover {
+    background-color: #3d3d3d;
+}
+
+.chat-history li.active {
+    background-color: #4a4a4a;
+    font-weight: 500;
+}
 
 .options-container {
     border: var(--border-width) solid transparent;
@@ -136,7 +146,7 @@ body {
     transition: max-height 0.35s ease-in-out, margin-bottom 0.35s ease-in-out;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 15px;
     margin-bottom: 0;
 }
 
@@ -186,27 +196,9 @@ body {
     color: #616161;
 }
 
-.ai-model-list {
-    background-color: #2C2C2C;
-    border: var(--border-width) solid var(--border-color);
-    border-radius: 6px;
-    padding: 5px;
-    max-height: 100px;
-    overflow-y: auto;
-}
-.ai-model-item {
-    padding: 6px 8px;
-    font-size: 14px;
-    border-radius: 4px;
-    cursor: pointer;
-}
-.ai-model-item:hover {
-    background-color: #3D3D3D;
-}
-
 .import-button {
     width: 100%;
-    padding: 20px 10px; /* Increased padding to match progress box */
+    padding: 20px 10px;
     font-size: 14px;
     color: #BDBDBD;
     background-color: #2C2C2C;
@@ -223,7 +215,7 @@ body {
 
 #import-progress-box {
     width: 100%;
-    padding: 7px 10px; /* Increased padding to match button size */
+    padding: 20px 10px;
     background-color: #2C2C2C;
     border: var(--border-width) solid var(--border-color);
     border-radius: 8px;
@@ -250,7 +242,7 @@ body {
     z-index: 2;
     font-family: inherit;
     font-size: 18px;
-    font-weight: 500; /* MODIFIED: Slightly less bold for a cleaner look */
+    font-weight: 500;
     color: #FFFFFF;
     text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
 }
@@ -268,13 +260,14 @@ body {
     padding: 10px 25px;
     border-bottom: var(--border-width) solid var(--border-color);
     flex-shrink: 0;
+    visibility: hidden; 
 }
 
-.chat-header h2 {
-    font-size: 20px;
-    font-weight: normal;
+.main-chat.chat-active .chat-header {
+    visibility: visible;
 }
 
+/* FIXED: Restored Kebab Menu styles */
 .kebab-wrapper {
     position: relative;
 }
@@ -325,9 +318,94 @@ body {
     flex-grow: 1;
     overflow-y: auto;
     padding: 20px;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 15px;
+}
+
+.main-chat.chat-active .message-area {
+    display: flex;
+}
+
+#home-page-view {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    gap: 40px;
+    position: relative;
+}
+
+.main-chat.chat-active #home-page-view {
+    display: none;
+}
+
+#temp-chat-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+
+#temp-chat-btn svg {
+    color: #616161;
+    transition: color 0.2s;
+}
+
+#temp-chat-btn:hover svg {
+    color: #E0E0E0;
+}
+
+#temp-chat-btn.active svg {
+    color: #81D4FA;
+}
+
+.home-title {
+    font-size: 48px;
+    font-weight: 500;
+    color: #616161;
+}
+
+.prompt-starters {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    width: 100%;
+    max-width: 700px;
+}
+
+.starter-card {
+    background-color: #2C2C2C;
+    border: var(--border-width) solid var(--border-color);
+    border-radius: 8px;
+    padding: 15px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.starter-card:hover {
+    background-color: #3d3d3d;
+}
+
+.starter-card h3 {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.starter-card p {
+    font-size: 14px;
+    color: #BDBDBD;
 }
 
 .message-wrapper {

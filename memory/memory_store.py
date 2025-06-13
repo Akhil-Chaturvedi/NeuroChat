@@ -15,7 +15,6 @@ client = chromadb.PersistentClient(path=CHROMA_PATH)
 # Get or create the collection
 collection = client.get_or_create_collection(COLLECTION_NAME)
 
-# MODIFIED: Added optional message_timestamp parameter
 def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text", media_url: str = None, message_timestamp: float = None):
     # Check if the collection is valid before adding
     if not collection:
@@ -46,14 +45,11 @@ def get_messages_for_chat(chat_id: str, page: int = 1, page_size: int = 30):
         return {"messages": [], "total_messages_in_chat": 0, "page": page, "page_size": page_size}
 
     # Fetch all messages for the chat_id.
-    # Using a high number for n_results to effectively get all messages.
-    # ChromaDB's default limit is 10 if n_results is not provided.
-    # Consider a more robust way if chat histories can exceed this significantly,
-    # though 5000 should cover most cases.
+    # The `get` method with a `where` filter fetches all matching items by default.
     results = collection.get(
         where={"chat_id": chat_id},
-        n_results=5000, # Explicitly ask for a large number of results
-        include=['metadatas', 'documents'] # Ensure we get both metadatas and documents
+        # REMOVED: The invalid 'n_results' parameter that was causing the crash.
+        include=['metadatas', 'documents'] 
     )
 
     all_messages = []
@@ -92,6 +88,4 @@ def get_messages_for_chat(chat_id: str, page: int = 1, page_size: int = 30):
 def save_changes():
     # PersistentClient automatically saves changes to disk,
     # so an explicit persist() call is often not needed.
-    # However, keeping it as a placeholder might be useful for future changes
-    # or if you switch to a client that requires it.
     pass

@@ -17,15 +17,12 @@
             <div class="chat-history">
                 <button class="history-new-chat-btn">New Chat</button>
                 <ul id="history-list">
-                    <li>History Item 1</li>
-                    <li>Previous Conversation</li>
-                    <li>Old Topic</li>
+                    <!-- History will be loaded here -->
                 </ul>
             </div>
 
-            <!-- New Wrapper for Options Section -->
+            <!-- Options Section -->
             <div id="options-container" class="options-container">
-                <!-- Options Panel (Content) -->
                 <div id="options-panel" class="options-panel">
                     <div class="option-section">
                         <label for="api-key-input">API Key</label>
@@ -34,20 +31,12 @@
                             <button id="verify-api-key-btn">Verify</button>
                         </div>
                     </div>
-
-                    <div id="ai-model-container" class="option-section">
-                        <!-- This will be populated by JS after key verification -->
-                    </div>
-
+                    <div id="ai-model-container" class="option-section"></div>
                     <div class="option-section">
                         <label for="import-drop-area">Import Chats</label>
-                        <!-- MODIFIED: Restructured the import container -->
                         <div id="import-container">
                             <input type="file" id="zip-file-input" accept=".zip" hidden>
-                            <button id="import-drop-area" class="import-button">
-                                Click or drag a .zip file
-                            </button>
-                            <!-- NEW: This is the new progress box that replaces the old wrapper -->
+                            <button id="import-drop-area" class="import-button">Click or drag a .zip file</button>
                             <div id="import-progress-box" style="display: none;">
                                 <div id="import-progress-fill"></div>
                                 <span id="import-progress-percent">0%</span>
@@ -55,15 +44,15 @@
                         </div>
                     </div>
                 </div>
-                <!-- This button toggles the entire container -->
                 <button id="options-btn" class="options-btn">Options</button>
             </div>
         </aside>
 
         <!-- Main Chat Area -->
-        <main class="main-chat">
+        <main class="main-chat" id="main-chat-area">
             <header class="chat-header">
-                <h2>Current Chat Title</h2>
+                <h2 id="chat-header-title"></h2>
+                <!-- FIXED: Kebab menu HTML restored -->
                 <div class="kebab-wrapper">
                     <button class="kebab-menu-btn" title="More options">
                         <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
@@ -76,18 +65,21 @@
                 </div>
             </header>
             
-            <div class="message-area" id="message-area">
-                <div class="message-wrapper">
-                    <div class="message user-message">
-                        This is a message from the user.
-                    </div>
-                </div>
-                 <div class="message-wrapper">
-                    <div class="message ai-message">
-                        This is a reply from the AI. It might be a bit longer to see how the text wrapping works inside the message bubble.
-                    </div>
+            <div id="home-page-view">
+                <button id="temp-chat-btn" title="Temporary Chat is OFF">
+                    <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M18 4h-2V2h-4v2H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V8h12v10zm-5-9h-2v4h2V9zm-4 0H7v4h2V9z"/></svg>
+                </button>
+                
+                <div class="home-title">NeuroChat</div>
+                <div class="prompt-starters">
+                    <div class="starter-card"><h3>Brainstorm names</h3><p>for a new brand of coffee</p></div>
+                    <div class="starter-card"><h3>Write a Python script</h3><p>that organizes files in a directory</p></div>
+                    <div class="starter-card"><h3>Explain quantum computing</h3><p>in simple, easy-to-understand terms</p></div>
+                    <div class="starter-card"><h3>Create a travel itinerary</h3><p>for a 3-day trip to Tokyo</p></div>
                 </div>
             </div>
+
+            <div class="message-area" id="message-area"></div>
 
             <footer class="chat-input-area">
                 <button class="ai-model-btn">AI Model</button>
@@ -95,7 +87,6 @@
                 <button id="attach-btn" class="action-btn" title="Attach file">+</button>
                 <button id="send-btn" class="action-btn" title="Send message">⇧</button>
             </footer>
-
         </main>
     </div>
 
