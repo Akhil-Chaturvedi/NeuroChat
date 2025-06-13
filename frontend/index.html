@@ -3,52 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroChat</title>
+    <title>Neuro Chat</title>
     <link rel="stylesheet" href="/static/style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@2.3.6/dist/purify.min.js"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="sidebar">
-            <div class="sidebar-header">
-                <h2>NeuroChat</h2>
-                <button id="newChatBtn">New Chat</button>
+
+    <div class="chat-container">
+
+        <!-- Sidebar for Chat History and Options -->
+        <aside class="sidebar">
+            <button class="new-chat-btn">Neuro Chat</button>
+            <div class="chat-history">
+                <button class="history-new-chat-btn">New Chat</button>
+                <ul id="history-list">
+                    <li>History Item 1</li>
+                    <li>Previous Conversation</li>
+                    <li>Old Topic</li>
+                </ul>
             </div>
-            <div class="options-container">
-                <button id="optionsBtn">Options</button>
-                <div id="optionsPanel" class="options-panel" style="display: none;">
-                    <h3>Upload Chat History (ZIP)</h3>
-                    <input type="file" id="fileInput" accept=".zip">
-                    <button onclick="uploadFile()">Upload</button>
-                    <div id="progressBarContainer" style="display: none;">
-                        <div id="progressBar">0%</div>
+
+            <!-- New Wrapper for Options Section -->
+            <div id="options-container" class="options-container">
+                <!-- Options Panel (Content) -->
+                <div id="options-panel" class="options-panel">
+                    <div class="option-section">
+                        <label for="api-key-input">API Key</label>
+                        <div class="input-with-button">
+                            <input type="password" id="api-key-input" placeholder="sk-">
+                            <button id="verify-api-key-btn">Verify</button>
+                        </div>
                     </div>
-                    <p id="uploadStatus"></p>
-                    <hr>
-                    <h3>API Key Configuration (Future)</h3>
-                    <form id="apiKeyForm"> <input type="password" id="apiKeyInput" placeholder="Enter your API key">
-                        <p class="api-key-note">Note: API Key saving not fully implemented yet.</p>
-                        <button type="submit" id="saveApiKeyBtn">Save API Key</button>
-                    </form> </div>
+
+                    <div id="ai-model-container" class="option-section">
+                        <!-- This will be populated by JS after key verification -->
+                    </div>
+
+                    <div class="option-section">
+                        <label for="import-drop-area">Import Chats</label>
+                        <!-- MODIFIED: Restructured the import container -->
+                        <div id="import-container">
+                            <input type="file" id="zip-file-input" accept=".zip" hidden>
+                            <button id="import-drop-area" class="import-button">
+                                Click or drag a .zip file
+                            </button>
+                            <!-- NEW: This is the new progress box that replaces the old wrapper -->
+                            <div id="import-progress-box" style="display: none;">
+                                <div id="import-progress-fill"></div>
+                                <span id="import-progress-percent">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- This button toggles the entire container -->
+                <button id="options-btn" class="options-btn">Options</button>
             </div>
-            <div id="chatList" class="chat-list">
-                <p class="loading-chats-message">Loading chats...</p>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="main-chat">
+            <header class="chat-header">
+                <h2>Current Chat Title</h2>
+                <div class="kebab-wrapper">
+                    <button class="kebab-menu-btn" title="More options">
+                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
+                    </button>
+                    <div id="chat-options-dropdown" class="dropdown-menu">
+                        <a href="#">Rename</a>
+                        <a href="#">Archive</a>
+                        <a href="#" class="delete-option">Delete</a>
+                    </div>
+                </div>
+            </header>
+            
+            <div class="message-area" id="message-area">
+                <div class="message-wrapper">
+                    <div class="message user-message">
+                        This is a message from the user.
+                    </div>
+                </div>
+                 <div class="message-wrapper">
+                    <div class="message ai-message">
+                        This is a reply from the AI. It might be a bit longer to see how the text wrapping works inside the message bubble.
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="main-content">
-            <h1 id="chatTitle">Welcome to NeuroChat</h1>
-            <div id="messages" class="messages">
-                <p class="initial-message">Select a chat from the sidebar or start a new one.</p>
-            </div>
-            <div id="loadingIndicator" class="loading-indicator" style="display: none;">
-                Loading messages...
-            </div>
-            <div class="chat-input-container">
-                <input type="text" id="chatInput" placeholder="Type a message...">
-                <button onclick="sendMessage()">Send</button>
-            </div>
-        </div>
+
+            <footer class="chat-input-area">
+                <button class="ai-model-btn">AI Model</button>
+                <textarea id="message-input" placeholder="Type a Message..."></textarea>
+                <button id="attach-btn" class="action-btn" title="Attach file">+</button>
+                <button id="send-btn" class="action-btn" title="Send message">⇧</button>
+            </footer>
+
+        </main>
     </div>
 
     <script src="/static/script.js"></script>

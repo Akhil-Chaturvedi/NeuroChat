@@ -15,20 +15,21 @@ client = chromadb.PersistentClient(path=CHROMA_PATH)
 # Get or create the collection
 collection = client.get_or_create_collection(COLLECTION_NAME)
 
-def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text", media_url: str = None):
+# MODIFIED: Added optional message_timestamp parameter
+def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text", media_url: str = None, message_timestamp: float = None):
     # Check if the collection is valid before adding
     if not collection:
         print("Error: ChromaDB collection not initialized.")
         return
 
-    # Use current timestamp for the message
-    message_timestamp = datetime.now().timestamp()
+    # Use the provided timestamp, or generate a new one if not provided (for live chats)
+    final_timestamp = message_timestamp if message_timestamp is not None else datetime.now().timestamp()
 
     metadata = {
         "chat_id": chat_id,
         "role": role,
-        "content_type": content_type, # Store content type
-        "message_timestamp": message_timestamp # Store message timestamp
+        "content_type": content_type,
+        "message_timestamp": final_timestamp # Use the correct final timestamp
     }
     if media_url: # Only add media_url if it's provided
         metadata["media_url"] = media_url
@@ -51,6 +52,7 @@ def get_messages_for_chat(chat_id: str, page: int = 1, page_size: int = 30):
     # though 5000 should cover most cases.
     results = collection.get(
         where={"chat_id": chat_id},
+        n_results=5000, # Explicitly ask for a large number of results
         include=['metadatas', 'documents'] # Ensure we get both metadatas and documents
     )
 
