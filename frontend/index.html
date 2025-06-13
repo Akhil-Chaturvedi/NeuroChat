@@ -10,18 +10,15 @@
 <body>
 
     <div class="chat-container">
-
-        <!-- Sidebar for Chat History and Options -->
         <aside class="sidebar">
             <button class="new-chat-btn">Neuro Chat</button>
             <div class="chat-history">
-                <button class="history-new-chat-btn">New Chat</button>
+                <!-- MODIFIED: Repurposed this button -->
+                <button id="toggle-archive-view-btn" class="history-new-chat-btn">Archived</button>
                 <ul id="history-list">
                     <!-- History will be loaded here -->
                 </ul>
             </div>
-
-            <!-- Options Section -->
             <div id="options-container" class="options-container">
                 <div id="options-panel" class="options-panel">
                     <div class="option-section">
@@ -48,18 +45,16 @@
             </div>
         </aside>
 
-        <!-- Main Chat Area -->
         <main class="main-chat" id="main-chat-area">
             <header class="chat-header">
                 <h2 id="chat-header-title"></h2>
-                <!-- FIXED: Kebab menu HTML restored -->
                 <div class="kebab-wrapper">
                     <button class="kebab-menu-btn" title="More options">
                         <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
                     </button>
                     <div id="chat-options-dropdown" class="dropdown-menu">
-                        <a href="#">Rename</a>
-                        <a href="#">Archive</a>
+                        <a href="#" class="rename-option">Rename</a>
+                        <a href="#" class="archive-option">Archive</a>
                         <a href="#" class="delete-option">Delete</a>
                     </div>
                 </div>
@@ -69,7 +64,6 @@
                 <button id="temp-chat-btn" title="Temporary Chat is OFF">
                     <svg xmlns="http://www.w3.org/2000/svg" height="24px" viewBox="0 0 24 24" width="24px" fill="currentColor"><path d="M0 0h24v24H0V0z" fill="none"/><path d="M18 4h-2V2h-4v2H6c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H6V8h12v10zm-5-9h-2v4h2V9zm-4 0H7v4h2V9z"/></svg>
                 </button>
-                
                 <div class="home-title">NeuroChat</div>
                 <div class="prompt-starters">
                     <div class="starter-card"><h3>Brainstorm names</h3><p>for a new brand of coffee</p></div>

@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    // --- Core Chat Elements ---
+    // --- Element Selectors ---
     const mainChatArea = document.getElementById('main-chat-area');
     const messageArea = document.getElementById('message-area');
     const messageInput = document.getElementById('message-input');
@@ -9,12 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const homePageView = document.getElementById('home-page-view');
     const promptStartersContainer = document.querySelector('.prompt-starters');
     const tempChatBtn = document.getElementById('temp-chat-btn');
-
-    // --- Sidebar Elements ---
     const historyList = document.getElementById('history-list');
-    const newChatButtons = document.querySelectorAll('.new-chat-btn, .history-new-chat-btn');
-
-    // --- Other elements ---
+    const newChatButtons = document.querySelectorAll('.new-chat-btn');
+    const toggleArchiveViewBtn = document.getElementById('toggle-archive-view-btn');
     const kebabBtn = document.querySelector('.kebab-menu-btn');
     const dropdownMenu = document.getElementById('chat-options-dropdown');
     const optionsContainer = document.getElementById('options-container');
@@ -32,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isImporting = false;
     let currentChatId = null; 
     let isTemporaryChatMode = false;
+    let isShowingArchived = false;
 
     // --- UI State Functions ---
     const showHomePage = () => {
@@ -47,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mainChatArea.classList.add('chat-active');
     };
 
-    // --- Kebab Menu and Options Panel Logic ---
+    // --- Kebab, Options, Import Logic (Restored) ---
     if (kebabBtn && dropdownMenu) {
         kebabBtn.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -69,8 +67,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- Import, API Key, and other logic (unchanged) ---
-    // ... (Your existing correct logic for these sections goes here) ...
     const pollImportStatus = (taskId) => {
         let interval;
         const updateStatus = async () => {
@@ -116,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateStatus();
         interval = setInterval(updateStatus, 1500);
     };
+
     const handleRealFileImport = async (file) => {
         if (!file || !(file.type === 'application/zip' || file.name.toLowerCase().endsWith('.zip'))) {
             alert('Please select a valid .zip file.');
@@ -146,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 4000);
         }
     };
+
     if (importDropArea && zipFileInput) {
         importDropArea.addEventListener('click', () => zipFileInput.click());
         zipFileInput.addEventListener('change', (e) => handleRealFileImport(e.target.files[0]));
@@ -158,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scrollToBottom = () => {
         messageArea.scrollTop = messageArea.scrollHeight;
     };
+
     const addMessage = (messageData) => {
         const { role, text, content_type, media_url } = messageData;
         const messageWrapper = document.createElement('div');
@@ -194,6 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         messageWrapper.appendChild(messageDiv);
         messageArea.appendChild(messageWrapper);
     };
+
     const loadChat = async (chatId) => {
         if (!chatId) return;
         currentChatId = chatId;
@@ -218,13 +218,17 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Failed to load chat.');
         }
     };
+
     const loadChatHistory = async () => {
+        const endpoint = isShowingArchived ? '/chats/archived' : '/chats';
+        const emptyMessage = isShowingArchived ? '<li>No archived chats.</li>' : '<li>No chats yet. Import some!</li>';
+        
         try {
-            const response = await fetch('/chats');
+            const response = await fetch(endpoint);
             const chats = await response.json();
             historyList.innerHTML = '';
             if (chats.length === 0) {
-                historyList.innerHTML = '<li>No chats yet. Import some!</li>';
+                historyList.innerHTML = emptyMessage;
                 return;
             }
             chats.forEach(chat => {
@@ -239,6 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
             historyList.innerHTML = '<li>Error loading history.</li>';
         }
     };
+
     const handleSendMessage = async () => {
         const messageText = messageInput.value.trim();
         if (messageText === "") return;
@@ -306,12 +311,14 @@ document.addEventListener('DOMContentLoaded', () => {
     newChatButtons.forEach(button => {
         button.addEventListener('click', showHomePage);
     });
+
     historyList.addEventListener('click', (e) => {
         const listItem = e.target.closest('li');
         if (listItem && listItem.dataset.chatId) {
             loadChat(listItem.dataset.chatId);
         }
     });
+
     if (promptStartersContainer) {
         promptStartersContainer.addEventListener('click', (e) => {
             const card = e.target.closest('.starter-card');
@@ -323,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
     if (tempChatBtn) {
         tempChatBtn.addEventListener('click', () => {
             isTemporaryChatMode = !isTemporaryChatMode;
@@ -331,16 +339,23 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // NEW: Event listener for the dropdown menu
+    if (toggleArchiveViewBtn) {
+        toggleArchiveViewBtn.addEventListener('click', () => {
+            isShowingArchived = !isShowingArchived;
+            toggleArchiveViewBtn.textContent = isShowingArchived ? 'Active Chats' : 'Archived';
+            showHomePage();
+            loadChatHistory();
+        });
+    }
+
     if (dropdownMenu) {
         dropdownMenu.addEventListener('click', async (e) => {
-            e.preventDefault(); // Prevent default link behavior
-            const action = e.target.textContent;
-
-            if (action === 'Rename' && currentChatId) {
+            e.preventDefault();
+            const actionTarget = e.target;
+            
+            if (actionTarget.classList.contains('rename-option') && currentChatId) {
                 const currentTitle = chatHeaderTitle.textContent;
                 const newTitle = prompt("Enter a new title for this chat:", currentTitle);
-
                 if (newTitle && newTitle.trim() !== "" && newTitle !== currentTitle) {
                     try {
                         const response = await fetch(`/chat/${currentChatId}/rename`, {
@@ -348,23 +363,56 @@ document.addEventListener('DOMContentLoaded', () => {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ new_title: newTitle.trim() })
                         });
-
                         if (!response.ok) throw new Error('Failed to rename chat.');
-
-                        // Update UI on success
                         chatHeaderTitle.textContent = newTitle;
                         const chatListItem = historyList.querySelector(`[data-chat-id="${currentChatId}"]`);
                         if (chatListItem) chatListItem.textContent = newTitle;
-                        
-                        dropdownMenu.classList.remove('show'); // Close menu
-
+                        dropdownMenu.classList.remove('show');
                     } catch (error) {
                         console.error('Rename failed:', error);
                         alert('Could not rename the chat.');
                     }
                 }
             }
-            // Add other actions like 'Delete' here in the future
+            
+            else if (actionTarget.classList.contains('archive-option') && currentChatId) {
+                if (confirm("Are you sure you want to archive this chat?")) {
+                    try {
+                        const response = await fetch(`/chat/${currentChatId}/archive`, {
+                            method: 'POST'
+                        });
+                        if (!response.ok) throw new Error('Failed to archive chat.');
+                        
+                        alert('Chat archived.');
+                        showHomePage();
+                        loadChatHistory();
+                    } catch (error) {
+                        console.error('Archive failed:', error);
+                        alert('Could not archive the chat.');
+                    }
+                }
+                dropdownMenu.classList.remove('show');
+            }
+
+            else if (actionTarget.classList.contains('delete-option') && currentChatId) {
+                if (confirm("Are you sure you want to permanently delete this chat? This cannot be undone.")) {
+                    try {
+                        const response = await fetch(`/chat/${currentChatId}`, {
+                            method: 'DELETE'
+                        });
+                        if (!response.ok) throw new Error('Failed to delete chat on the server.');
+                        
+                        alert('Chat deleted successfully.');
+                        showHomePage();
+                        loadChatHistory();
+
+                    } catch (error) {
+                        console.error('Delete failed:', error);
+                        alert('Could not delete the chat.');
+                    }
+                }
+                dropdownMenu.classList.remove('show');
+            }
         });
     }
 
