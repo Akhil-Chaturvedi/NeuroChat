@@ -26,26 +26,39 @@ document.addEventListener('DOMContentLoaded', () => {
     const importProgressPercent = document.getElementById('import-progress-percent');
 
     // --- State Management ---
-    let isImporting = false;
-    let currentChatId = null; 
-    let isTemporaryChatMode = false;
+    let currentChatId = null;
+    let temporaryChatMessages = [];
     let isShowingArchived = false;
+
+    // --- Client-Side Temporary Chat Persistence ---
+    const saveTemporaryChat = () => {
+        sessionStorage.setItem('temporaryChat', JSON.stringify(temporaryChatMessages));
+    };
+
+    const restoreTemporaryChat = () => {
+        const saved = sessionStorage.getItem('temporaryChat');
+        if (saved) {
+            temporaryChatMessages = JSON.parse(saved);
+            if (temporaryChatMessages.length > 0) {
+                loadTemporaryChat();
+            }
+        }
+    };
 
     // --- UI State Functions ---
     const showHomePage = () => {
         currentChatId = null;
+        temporaryChatMessages = [];
+        sessionStorage.removeItem('temporaryChat');
         mainChatArea.classList.remove('chat-active');
-        chatHeaderTitle.textContent = '';
-        messageArea.innerHTML = '';
-        const activeItem = historyList.querySelector('.active');
-        if (activeItem) activeItem.classList.remove('active');
+        loadChatHistory();
     };
 
     const showChatView = () => {
         mainChatArea.classList.add('chat-active');
     };
 
-    // --- Kebab, Options, Import Logic (Restored) ---
+    // --- Kebab, Options, Import Logic ---
     if (kebabBtn && dropdownMenu) {
         kebabBtn.addEventListener('click', (event) => {
             event.stopPropagation();
@@ -66,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
             optionsBtn.textContent = isNowOpen ? 'Close Options' : 'Options';
         });
     }
-
+    
     const pollImportStatus = (taskId) => {
         let interval;
         const updateStatus = async () => {
@@ -87,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (status.status === 'completed' || status.status === 'error') {
                     clearInterval(interval);
-                    isImporting = false;
                     if (status.status === 'completed') {
                         importProgressPercent.textContent = '✅';
                         importProgressBox.title = 'Import Complete!';
@@ -106,7 +118,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 importProgressPercent.textContent = '⚠️';
                 importProgressBox.title = 'Error checking status.';
                 clearInterval(interval);
-                isImporting = false;
             }
         };
         updateStatus();
@@ -118,7 +129,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Please select a valid .zip file.');
             return;
         }
-        isImporting = true;
         importDropArea.style.display = 'none';
         importProgressBox.style.display = 'flex';
         importProgressFill.style.width = '0%';
@@ -136,7 +146,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Import failed:', error);
             importProgressPercent.textContent = '❌';
             importProgressBox.title = `Upload failed: ${error.message}`;
-            isImporting = false;
             setTimeout(() => {
                 importDropArea.style.display = 'block';
                 importProgressBox.style.display = 'none';
@@ -194,17 +203,36 @@ document.addEventListener('DOMContentLoaded', () => {
         messageArea.appendChild(messageWrapper);
     };
 
+    const loadTemporaryChat = () => {
+        currentChatId = 'temporary';
+        chatHeaderTitle.textContent = "Temporary Chat";
+        messageArea.innerHTML = '';
+        temporaryChatMessages.forEach(msg => addMessage(msg));
+        showChatView();
+        updateHistoryActiveState();
+        scrollToBottom();
+    };
+
+    const updateHistoryActiveState = () => {
+        historyList.querySelectorAll('li').forEach(item => item.classList.remove('active'));
+        if (currentChatId) {
+            const currentItem = historyList.querySelector(`[data-chat-id="${currentChatId}"]`);
+            if (currentItem) currentItem.classList.add('active');
+        }
+    };
+    
     const loadChat = async (chatId) => {
         if (!chatId) return;
+        if (chatId === 'temporary') {
+            loadTemporaryChat();
+            return;
+        }
         currentChatId = chatId;
         console.log(`Loading chat: ${chatId}`);
-        const previouslyActive = historyList.querySelector('.active');
-        if (previouslyActive) previouslyActive.classList.remove('active');
-        const currentItem = historyList.querySelector(`[data-chat-id="${chatId}"]`);
-        if (currentItem) currentItem.classList.add('active');
+        updateHistoryActiveState();
         try {
             const response = await fetch(`/chat/${chatId}`);
-            if (!response.ok) throw new Error(`Chat not found or error loading: ${response.statusText}`);
+            if (!response.ok) throw new Error(`Chat not found`);
             const chatData = await response.json();
             messageArea.innerHTML = '';
             chatHeaderTitle.textContent = chatData.title;
@@ -221,13 +249,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loadChatHistory = async () => {
         const endpoint = isShowingArchived ? '/chats/archived' : '/chats';
-        const emptyMessage = isShowingArchived ? '<li>No archived chats.</li>' : '<li>No chats yet. Import some!</li>';
-        
+        const emptyMessage = isShowingArchived ? '<li>No archived chats.</li>' : '<li>No chats yet.</li>';
         try {
             const response = await fetch(endpoint);
             const chats = await response.json();
             historyList.innerHTML = '';
-            if (chats.length === 0) {
+            if (temporaryChatMessages.length > 0) {
+                const li = document.createElement('li');
+                li.innerHTML = '⏳ Temporary Chat';
+                li.dataset.chatId = 'temporary';
+                li.className = 'temporary-chat-item';
+                historyList.appendChild(li);
+            }
+            if (chats.length === 0 && temporaryChatMessages.length === 0) {
                 historyList.innerHTML = emptyMessage;
                 return;
             }
@@ -235,9 +269,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const li = document.createElement('li');
                 li.textContent = chat.title;
                 li.dataset.chatId = chat.id;
-                li.style.cursor = 'pointer';
                 historyList.appendChild(li);
             });
+            updateHistoryActiveState();
         } catch (error) {
             console.error('Failed to load chat history:', error);
             historyList.innerHTML = '<li>Error loading history.</li>';
@@ -247,13 +281,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const handleSendMessage = async () => {
         const messageText = messageInput.value.trim();
         if (messageText === "") return;
-        if (currentChatId === null) {
+
+        const isTempModeActive = tempChatBtn.classList.contains('active');
+        let isFirstMessage = currentChatId === null;
+
+        if (isFirstMessage && isTempModeActive) {
+            currentChatId = 'temporary';
+            chatHeaderTitle.textContent = "Temporary Chat";
+            messageArea.innerHTML = '';
             showChatView();
+            loadChatHistory();
         }
+
         addMessage({ role: 'user', text: messageText, content_type: 'text' });
         messageInput.value = '';
         scrollToBottom();
-        if (currentChatId === null && isTemporaryChatMode) {
+
+        if (currentChatId === 'temporary') {
+            temporaryChatMessages.push({ role: 'user', text: messageText, content_type: 'text' });
+            saveTemporaryChat();
             try {
                 const response = await fetch('/chat/temporary', {
                     method: 'POST',
@@ -263,9 +309,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!response.ok) throw new Error("Failed to get temporary response.");
                 const aiResponse = await response.json();
                 addMessage(aiResponse);
+                temporaryChatMessages.push(aiResponse);
+                saveTemporaryChat();
                 scrollToBottom();
             } catch (error) {
-                console.error("Failed in temporary chat:", error);
                 addMessage({ role: 'assistant', text: 'Sorry, an error occurred.', content_type: 'text'});
                 scrollToBottom();
             }
@@ -274,17 +321,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (chatIdToSend === null) {
                 try {
                     const response = await fetch('/chats', { method: 'POST' });
-                    if (!response.ok) throw new Error("Failed to create new chat session.");
                     const newChat = await response.json();
                     chatIdToSend = newChat.id;
                     await loadChatHistory();
-                    const newItem = historyList.querySelector(`[data-chat-id="${chatIdToSend}"]`);
-                    if(newItem) newItem.classList.add('active');
                     currentChatId = chatIdToSend;
+                    updateHistoryActiveState();
                     chatHeaderTitle.textContent = newChat.title;
+                    showChatView();
                 } catch (error) {
-                    console.error("Failed to create new chat:", error);
-                    alert("Could not start a new chat. Please check the server.");
                     showHomePage();
                     return;
                 }
@@ -295,12 +339,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text: messageText })
                 });
-                if (!response.ok) throw new Error("Failed to get response from server.");
                 const aiResponse = await response.json();
                 addMessage(aiResponse);
                 scrollToBottom();
             } catch (error) {
-                console.error("Failed to send message:", error);
                 addMessage({ role: 'assistant', text: 'Sorry, I encountered an error.', content_type: 'text'});
                 scrollToBottom();
             }
@@ -308,10 +350,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Event Listeners ---
-    newChatButtons.forEach(button => {
-        button.addEventListener('click', showHomePage);
-    });
-
+    newChatButtons.forEach(button => button.addEventListener('click', showHomePage));
+    
     historyList.addEventListener('click', (e) => {
         const listItem = e.target.closest('li');
         if (listItem && listItem.dataset.chatId) {
@@ -333,9 +373,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (tempChatBtn) {
         tempChatBtn.addEventListener('click', () => {
-            isTemporaryChatMode = !isTemporaryChatMode;
-            tempChatBtn.classList.toggle('active', isTemporaryChatMode);
-            tempChatBtn.title = isTemporaryChatMode ? 'Temporary Chat is ON (won\'t be saved)' : 'Temporary Chat is OFF (will be saved)';
+            tempChatBtn.classList.toggle('active');
         });
     }
 
@@ -351,11 +389,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dropdownMenu) {
         dropdownMenu.addEventListener('click', async (e) => {
             e.preventDefault();
-            const actionTarget = e.target;
-            
-            if (actionTarget.classList.contains('rename-option') && currentChatId) {
+            const action = e.target.dataset.action;
+            if (!action || !currentChatId || currentChatId === 'temporary') return;
+
+            if (action === 'rename') {
                 const currentTitle = chatHeaderTitle.textContent;
-                const newTitle = prompt("Enter a new title for this chat:", currentTitle);
+                const newTitle = prompt("Enter a new title:", currentTitle);
                 if (newTitle && newTitle.trim() !== "" && newTitle !== currentTitle) {
                     try {
                         const response = await fetch(`/chat/${currentChatId}/rename`, {
@@ -367,52 +406,34 @@ document.addEventListener('DOMContentLoaded', () => {
                         chatHeaderTitle.textContent = newTitle;
                         const chatListItem = historyList.querySelector(`[data-chat-id="${currentChatId}"]`);
                         if (chatListItem) chatListItem.textContent = newTitle;
-                        dropdownMenu.classList.remove('show');
                     } catch (error) {
-                        console.error('Rename failed:', error);
-                        alert('Could not rename the chat.');
+                        alert('Could not rename chat.');
                     }
                 }
-            }
-            
-            else if (actionTarget.classList.contains('archive-option') && currentChatId) {
+            } else if (action === 'archive') {
                 if (confirm("Are you sure you want to archive this chat?")) {
                     try {
-                        const response = await fetch(`/chat/${currentChatId}/archive`, {
-                            method: 'POST'
-                        });
+                        const response = await fetch(`/chat/${currentChatId}/archive`, { method: 'POST' });
                         if (!response.ok) throw new Error('Failed to archive chat.');
-                        
-                        alert('Chat archived.');
                         showHomePage();
                         loadChatHistory();
                     } catch (error) {
-                        console.error('Archive failed:', error);
-                        alert('Could not archive the chat.');
+                        alert('Could not archive chat.');
                     }
                 }
-                dropdownMenu.classList.remove('show');
-            }
-
-            else if (actionTarget.classList.contains('delete-option') && currentChatId) {
-                if (confirm("Are you sure you want to permanently delete this chat? This cannot be undone.")) {
+            } else if (action === 'delete') {
+                if (confirm("Are you sure? This cannot be undone.")) {
                     try {
-                        const response = await fetch(`/chat/${currentChatId}`, {
-                            method: 'DELETE'
-                        });
-                        if (!response.ok) throw new Error('Failed to delete chat on the server.');
-                        
-                        alert('Chat deleted successfully.');
+                        const response = await fetch(`/chat/${currentChatId}`, { method: 'DELETE' });
+                        if (!response.ok) throw new Error('Failed to delete chat.');
                         showHomePage();
                         loadChatHistory();
-
                     } catch (error) {
-                        console.error('Delete failed:', error);
-                        alert('Could not delete the chat.');
+                        alert('Could not delete chat.');
                     }
                 }
-                dropdownMenu.classList.remove('show');
             }
+            dropdownMenu.classList.remove('show');
         });
     }
 
@@ -425,6 +446,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Load ---
+    restoreTemporaryChat();
     loadChatHistory();
-    showHomePage();
+    if (currentChatId === null) {
+        showHomePage();
+    }
 });

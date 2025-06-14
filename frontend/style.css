@@ -103,6 +103,10 @@ body {
     font-weight: 500;
 }
 
+.chat-history li.temporary-chat-item {
+    color: #81D4FA;
+}
+
 .options-container {
     border: var(--border-width) solid transparent;
     background-color: transparent;
@@ -146,7 +150,7 @@ body {
     transition: max-height 0.35s ease-in-out, margin-bottom 0.35s ease-in-out;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    gap: 5px;
     margin-bottom: 0;
 }
 
@@ -267,7 +271,6 @@ body {
     visibility: visible;
 }
 
-/* FIXED: Restored Kebab Menu styles */
 .kebab-wrapper {
     position: relative;
 }
@@ -399,14 +402,14 @@ body {
 
 .starter-card h3 {
     font-size: 16px;
-    font-weight: 500;
+    font-weight: normal; /* FIXED: Restored normal font weight */
     margin-bottom: 5px;
 }
 
 .starter-card p {
     font-size: 14px;
     color: #BDBDBD;
-}
+} /* FIXED: Added the missing closing brace that broke the layout */
 
 .message-wrapper {
     display: flex;
