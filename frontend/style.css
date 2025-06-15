@@ -150,7 +150,7 @@ body {
     transition: max-height 0.35s ease-in-out, margin-bottom 0.35s ease-in-out;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 15px;
     margin-bottom: 0;
 }
 
@@ -200,6 +200,45 @@ body {
     color: #616161;
 }
 
+.ai-model-list {
+    background-color: #2C2C2C;
+    border: var(--border-width) solid var(--border-color);
+    border-radius: 6px;
+    padding: 5px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.ai-model-item {
+    padding: 6px 8px;
+    font-size: 14px;
+    border-radius: 4px;
+    cursor: pointer;
+    word-wrap: break-word;
+}
+
+.ai-model-item:hover {
+    background-color: #3D3D3D;
+}
+
+.recommended-model-section {
+    padding-bottom: 5px;
+}
+.recommend-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    color: #888;
+    padding: 0 8px;
+    margin-top: 5px;
+}
+.ai-model-list hr {
+    border: none;
+    height: 1px;
+    background-color: var(--border-color);
+    margin: 8px 0;
+}
+
+/* FIXED: Restored the missing import button styles */
 .import-button {
     width: 100%;
     padding: 20px 10px;
@@ -317,6 +356,12 @@ body {
 .dropdown-menu a:hover { background-color: #3D3D3D; }
 .dropdown-menu .delete-option { color: #EF5350; }
 
+.main-chat.is-archived .dropdown-menu a[data-action="rename"],
+.main-chat.is-archived .dropdown-menu a[data-action="archive"],
+.main-chat.is-archived .dropdown-menu a[data-action="delete"] {
+    display: none;
+}
+
 .message-area {
     flex-grow: 1;
     overflow-y: auto;
@@ -402,14 +447,14 @@ body {
 
 .starter-card h3 {
     font-size: 16px;
-    font-weight: normal; /* FIXED: Restored normal font weight */
+    font-weight: normal;
     margin-bottom: 5px;
 }
 
 .starter-card p {
     font-size: 14px;
     color: #BDBDBD;
-} /* FIXED: Added the missing closing brace that broke the layout */
+}
 
 .message-wrapper {
     display: flex;

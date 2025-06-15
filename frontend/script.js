@@ -17,8 +17,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const optionsContainer = document.getElementById('options-container');
     const optionsBtn = document.getElementById('options-btn');
     const optionsPanel = document.getElementById('options-panel');
+    const apiKeyInput = document.getElementById('api-key-input');
     const verifyApiKeyBtn = document.getElementById('verify-api-key-btn');
     const aiModelContainer = document.getElementById('ai-model-container');
+    const aiModelBtn = document.querySelector('.ai-model-btn');
     const importDropArea = document.getElementById('import-drop-area');
     const zipFileInput = document.getElementById('zip-file-input');
     const importProgressBox = document.getElementById('import-progress-box');
@@ -29,12 +31,31 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentChatId = null;
     let temporaryChatMessages = [];
     let isShowingArchived = false;
+    let globalModel = "google/gemini-2.0-flash-exp:free";
+    let availableModels = [];
 
-    // --- Client-Side Temporary Chat Persistence ---
-    const saveTemporaryChat = () => {
-        sessionStorage.setItem('temporaryChat', JSON.stringify(temporaryChatMessages));
+    // --- Client-Side State Persistence ---
+    const saveState = () => {
+        const state = {
+            globalModel,
+            apiKey: apiKeyInput.value
+        };
+        localStorage.setItem('neuroChatState', JSON.stringify(state));
     };
 
+    const loadState = () => {
+        const savedState = localStorage.getItem('neuroChatState');
+        if (savedState) {
+            const state = JSON.parse(savedState);
+            globalModel = state.globalModel || "google/gemini-2.0-flash-exp:free";
+            if (state.apiKey) {
+                apiKeyInput.value = state.apiKey;
+                handleApiKeyVerification(true); 
+            }
+        }
+        aiModelBtn.textContent = globalModel.split('/').pop();
+    };
+    
     const restoreTemporaryChat = () => {
         const saved = sessionStorage.getItem('temporaryChat');
         if (saved) {
@@ -45,41 +66,98 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- UI State Functions ---
-    const showHomePage = () => {
-        currentChatId = null;
-        temporaryChatMessages = [];
-        sessionStorage.removeItem('temporaryChat');
-        mainChatArea.classList.remove('chat-active');
-        loadChatHistory();
+    // --- UI & AI Model Functions ---
+    const renderModelList = () => {
+        if (availableModels.length === 0) {
+            aiModelContainer.innerHTML = '<p style="font-size: 12px; color: #BDBDBD;">No models available. Enter a valid API key and click Verify.</p>';
+            return;
+        }
+        const preferredModel = "google/gemini-2.0-flash-exp:free";
+        let recommendedHTML = '';
+        let otherModels = [...availableModels];
+        if (availableModels.includes(preferredModel)) {
+            recommendedHTML = `
+                <div class="recommended-model-section">
+                    <div class="recommend-title">Recommended</div>
+                    <div class="ai-model-item" data-model-id="${preferredModel}">${preferredModel}</div>
+                </div>
+                <hr />
+            `;
+            otherModels = availableModels.filter(m => m !== preferredModel);
+        }
+        const otherModelsHTML = otherModels.map(model => 
+            `<div class="ai-model-item" data-model-id="${model}">${model}</div>`
+        ).join('');
+        aiModelContainer.innerHTML = `
+            <label>Set Global Default Model</label>
+            <div class="ai-model-list">
+                ${recommendedHTML}
+                ${otherModelsHTML}
+            </div>
+        `;
     };
 
-    const showChatView = () => {
-        mainChatArea.classList.add('chat-active');
-    };
-
-    // --- Kebab, Options, Import Logic ---
-    if (kebabBtn && dropdownMenu) {
-        kebabBtn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            dropdownMenu.classList.toggle('show');
-        });
-        window.addEventListener('click', (event) => {
-            if (dropdownMenu.classList.contains('show')) {
-                if (!kebabBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
-                    dropdownMenu.classList.remove('show');
+    const handleApiKeyVerification = async (isSilent = false) => {
+        const apiKey = apiKeyInput.value.trim();
+        if (!apiKey) {
+            if (!isSilent) alert("Please enter an API key.");
+            return;
+        }
+        verifyApiKeyBtn.textContent = 'Verifying...';
+        verifyApiKeyBtn.disabled = true;
+        try {
+            const response = await fetch('/config/api-key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ api_key: apiKey })
+            });
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Verification failed');
+            }
+            const data = await response.json();
+            availableModels = data.models;
+            const preferredDefault = "google/gemini-2.0-flash-exp:free";
+            if (availableModels.includes(preferredDefault)) {
+                globalModel = preferredDefault;
+            } else if (availableModels.length > 0) {
+                globalModel = availableModels[0];
+                if (!isSilent) {
+                    alert(`Preferred default (Gemini Flash) not available. Falling back to: ${globalModel}`);
                 }
             }
-        });
-    }
-
-    if (optionsBtn && optionsPanel && optionsContainer) {
-        optionsBtn.addEventListener('click', () => {
-            const isNowOpen = optionsPanel.classList.toggle('show');
-            optionsBtn.textContent = isNowOpen ? 'Close Options' : 'Options';
-        });
-    }
+            renderModelList();
+            aiModelBtn.textContent = globalModel.split('/').pop();
+            saveState();
+            verifyApiKeyBtn.textContent = 'Verified';
+            setTimeout(() => { verifyApiKeyBtn.textContent = 'Verify'; verifyApiKeyBtn.disabled = false; }, 2000);
+        } catch (error) {
+            console.error("API Key verification failed:", error);
+            if (!isSilent) alert(`API Key verification failed: ${error.message}`);
+            availableModels = [];
+            renderModelList();
+            verifyApiKeyBtn.textContent = 'Verify';
+            verifyApiKeyBtn.disabled = false;
+        }
+    };
     
+    const setPerChatModel = async (chatId, model) => {
+        try {
+            const response = await fetch(`/chat/${chatId}/model`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: model })
+            });
+            if (!response.ok) throw new Error("Failed to set model for chat.");
+            aiModelBtn.textContent = (model || globalModel).split('/').pop();
+            alert(`Model for this chat has been updated.`);
+        } catch (error) {
+            console.error("Failed to set per-chat model:", error);
+            alert("Error: Could not update the model for this chat.");
+        }
+    };
+
+    // --- Import Logic (RESTORED) ---
     const pollImportStatus = (taskId) => {
         let interval;
         const updateStatus = async () => {
@@ -153,15 +231,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    if (importDropArea && zipFileInput) {
-        importDropArea.addEventListener('click', () => zipFileInput.click());
-        zipFileInput.addEventListener('change', (e) => handleRealFileImport(e.target.files[0]));
-        importDropArea.addEventListener('dragover', (e) => { e.preventDefault(); importDropArea.classList.add('drag-over'); });
-        importDropArea.addEventListener('dragleave', () => importDropArea.classList.remove('drag-over'));
-        importDropArea.addEventListener('drop', (e) => { e.preventDefault(); importDropArea.classList.remove('drag-over'); handleRealFileImport(e.dataTransfer.files[0]); });
-    }
+    // --- Core Chat & UI Functions ---
+    const showHomePage = () => {
+        currentChatId = null;
+        temporaryChatMessages = [];
+        sessionStorage.removeItem('temporaryChat');
+        mainChatArea.classList.remove('chat-active', 'is-archived');
+        aiModelBtn.textContent = globalModel.split('/').pop();
+        loadChatHistory();
+    };
 
-    // --- Core Chat Functions ---
+    const showChatView = () => {
+        mainChatArea.classList.add('chat-active');
+    };
+
     const scrollToBottom = () => {
         messageArea.scrollTop = messageArea.scrollHeight;
     };
@@ -208,6 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatHeaderTitle.textContent = "Temporary Chat";
         messageArea.innerHTML = '';
         temporaryChatMessages.forEach(msg => addMessage(msg));
+        mainChatArea.classList.remove('is-archived');
         showChatView();
         updateHistoryActiveState();
         scrollToBottom();
@@ -230,12 +314,15 @@ document.addEventListener('DOMContentLoaded', () => {
         currentChatId = chatId;
         console.log(`Loading chat: ${chatId}`);
         updateHistoryActiveState();
+        mainChatArea.classList.toggle('is-archived', isShowingArchived);
         try {
             const response = await fetch(`/chat/${chatId}`);
             if (!response.ok) throw new Error(`Chat not found`);
             const chatData = await response.json();
             messageArea.innerHTML = '';
             chatHeaderTitle.textContent = chatData.title;
+            const modelName = chatData.model || globalModel;
+            aiModelBtn.textContent = modelName.split('/').pop();
             const messages = chatData.messages_page.messages.reverse();
             messages.forEach(msg => addMessage(msg));
             showChatView();
@@ -297,6 +384,15 @@ document.addEventListener('DOMContentLoaded', () => {
         messageInput.value = '';
         scrollToBottom();
 
+        let modelToSend = globalModel;
+        if (currentChatId && currentChatId !== 'temporary') {
+            try {
+                const chatDataRes = await fetch(`/chat/${currentChatId}`);
+                const chatData = await chatDataRes.json();
+                modelToSend = chatData.model || globalModel;
+            } catch(e) { /* Use global model if fetch fails */ }
+        }
+
         if (currentChatId === 'temporary') {
             temporaryChatMessages.push({ role: 'user', text: messageText, content_type: 'text' });
             saveTemporaryChat();
@@ -304,7 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch('/chat/temporary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: messageText })
+                    body: JSON.stringify({ text: messageText, model: modelToSend })
                 });
                 if (!response.ok) throw new Error("Failed to get temporary response.");
                 const aiResponse = await response.json();
@@ -337,7 +433,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const response = await fetch(`/chat/${chatIdToSend}/message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text: messageText })
+                    body: JSON.stringify({ text: messageText, model: modelToSend })
                 });
                 const aiResponse = await response.json();
                 addMessage(aiResponse);
@@ -350,6 +446,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Event Listeners ---
+    verifyApiKeyBtn.addEventListener('click', () => handleApiKeyVerification(false));
+    
+    aiModelContainer.addEventListener('click', (e) => {
+        if (e.target.classList.contains('ai-model-item')) {
+            const newModel = e.target.dataset.modelId;
+            globalModel = newModel;
+            if (!currentChatId) {
+                aiModelBtn.textContent = newModel.split('/').pop();
+            }
+            saveState();
+            alert(`Global default model set to: ${newModel}`);
+        }
+    });
+
+    aiModelBtn.addEventListener('click', () => {
+        if (!currentChatId || currentChatId === 'temporary') {
+            alert("Please select a permanent chat to override its model.");
+            return;
+        }
+        const modelSelection = prompt(`Current model: ${aiModelBtn.textContent}\n\nEnter a new model name for this chat (or leave blank to use global default):\n\nAvailable models:\n${availableModels.join('\n')}`);
+        if (modelSelection !== null) {
+            const newModel = modelSelection.trim();
+            setPerChatModel(currentChatId, newModel);
+        }
+    });
+    
     newChatButtons.forEach(button => button.addEventListener('click', showHomePage));
     
     historyList.addEventListener('click', (e) => {
@@ -383,6 +505,27 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleArchiveViewBtn.textContent = isShowingArchived ? 'Active Chats' : 'Archived';
             showHomePage();
             loadChatHistory();
+        });
+    }
+
+    if (kebabBtn && dropdownMenu) {
+        kebabBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            dropdownMenu.classList.toggle('show');
+        });
+        window.addEventListener('click', (event) => {
+            if (dropdownMenu.classList.contains('show')) {
+                if (!kebabBtn.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                    dropdownMenu.classList.remove('show');
+                }
+            }
+        });
+    }
+
+    if (optionsBtn && optionsPanel && optionsContainer) {
+        optionsBtn.addEventListener('click', () => {
+            const isNowOpen = optionsPanel.classList.toggle('show');
+            optionsBtn.textContent = isNowOpen ? 'Close Options' : 'Options';
         });
     }
 
@@ -436,6 +579,15 @@ document.addEventListener('DOMContentLoaded', () => {
             dropdownMenu.classList.remove('show');
         });
     }
+    
+    // RESTORED: Event listener for the import button
+    if (importDropArea && zipFileInput) {
+        importDropArea.addEventListener('click', () => zipFileInput.click());
+        zipFileInput.addEventListener('change', (e) => handleRealFileImport(e.target.files[0]));
+        importDropArea.addEventListener('dragover', (e) => { e.preventDefault(); importDropArea.classList.add('drag-over'); });
+        importDropArea.addEventListener('dragleave', () => importDropArea.classList.remove('drag-over'));
+        importDropArea.addEventListener('drop', (e) => { e.preventDefault(); importDropArea.classList.remove('drag-over'); handleRealFileImport(e.dataTransfer.files[0]); });
+    }
 
     sendBtn.addEventListener('click', handleSendMessage);
     messageInput.addEventListener('keydown', (event) => {
@@ -446,6 +598,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // --- Initial Load ---
+    loadState();
     restoreTemporaryChat();
     loadChatHistory();
     if (currentChatId === null) {
