@@ -15,7 +15,6 @@
             <div class="chat-history">
                 <button id="toggle-archive-view-btn" class="history-new-chat-btn">Archived</button>
                 <ul id="history-list">
-                    <!-- History will be loaded here -->
                 </ul>
             </div>
             <div id="options-container" class="options-container">
@@ -29,14 +28,21 @@
                     </div>
                     <div id="ai-model-container" class="option-section"></div>
                     <div class="option-section">
-                        <label for="import-drop-area">Import Chats</label>
+                        <label>Import Chats</label>
                         <div id="import-container">
-                            <input type="file" id="zip-file-input" accept=".zip" hidden>
-                            <button id="import-drop-area" class="import-button">Click or drag a .zip file</button>                            
+                            <input type="file" id="json-file-input" accept=".json" hidden>
+                            <button id="import-drop-area" class="import-button">Click or drag conversations.json</button>                            
                             <div id="import-progress-box" style="display: none;">
                                 <div id="import-progress-fill"></div>
                                 <span id="import-progress-percent">0%</span>
                             </div>
+                        </div>
+                    </div>
+                    <div class="option-section">
+                        <label>Upload Knowledge</label>
+                        <div id="knowledge-upload-container">
+                            <input type="file" id="knowledge-file-input" accept=".txt,.md" hidden multiple>
+                            <button id="knowledge-upload-btn" class="import-button">Click or drag .txt files</button>
                         </div>
                     </div>
                 </div>
@@ -47,15 +53,25 @@
         <main class="main-chat" id="main-chat-area">
             <header class="chat-header">
                 <h2 id="chat-header-title"></h2>
-                <div class="kebab-wrapper">
-                    <button class="kebab-menu-btn" title="More options">
-                        <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
-                    </button>
-                    <div id="chat-options-dropdown" class="dropdown-menu">
-                        <!-- MODIFIED: Added data-action attributes for clarity -->
-                        <a href="#" data-action="rename">Rename</a>
-                        <a href="#" data-action="archive">Archive</a>
-                        <a href="#" data-action="delete" class="delete-option">Delete</a>
+                <div class="header-controls"> <!-- NEW WRAPPER for all controls -->
+                    <div class="message-nav-buttons"> <!-- NEW container for nav buttons -->
+                        <button id="nav-up-btn" class="nav-btn" aria-label="Scroll to previous message boundary" title="Previous message (Alt+↑)">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20" fill="currentColor"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"></path></svg>
+                        </button>
+                        <button id="nav-down-btn" class="nav-btn" aria-label="Scroll to next message boundary" title="Next message (Alt+↓)">
+                            <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 24 24" width="20" fill="currentColor"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6z"></path></svg>
+                        </button>
+                    </div>
+                    <div class="kebab-wrapper">
+                        <button class="kebab-menu-btn" title="More options">
+                            <!-- SVG for kebab menu remains here -->
+                            <svg xmlns="http://www.w3.org/2000/svg" height="24" viewBox="0 -960 960 960" width="24" fill="currentColor"><path d="M480-160q-33 0-56.5-23.5T400-240q0-33 23.5-56.5T480-320q33 0 56.5 23.5T560-240q0 33-23.5 56.5T480-160Zm0-240q-33 0-56.5-23.5T400-480q0-33 23.5-56.5T480-560q33 0 56.5 23.5T560-480q0 33-23.5 56.5T480-400Zm0-240q-33 0-56.5-23.5T400-720q0-33 23.5-56.5T480-800q33 0 56.5 23.5T560-720q0 33-23.5 56.5T480-640Z"/></svg>
+                        </button>
+                        <div id="chat-options-dropdown" class="dropdown-menu">
+                            <a href="#" data-action="rename">Rename</a>
+                            <a href="#" data-action="archive">Archive</a>
+                            <a href="#" data-action="delete" class="delete-option">Delete</a>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -76,7 +92,10 @@
             <div class="message-area" id="message-area"></div>
 
             <footer class="chat-input-area">
-                <button class="ai-model-btn">AI Model</button>
+                <button id="sources-btn" class="ai-model-btn sources-btn" title="Select Knowledge Sources">
+                    Sources <span id="sources-badge" class="badge">All</span>
+                </button>
+                <button id="current-model-btn" class="ai-model-btn">Model</button>
                 <textarea id="message-input" placeholder="Type a Message..."></textarea>
                 <button id="attach-btn" class="action-btn" title="Attach file">+</button>
                 <button id="send-btn" class="action-btn" title="Send message">⇧</button>
@@ -84,6 +103,33 @@
         </main>
     </div>
 
-    <script src="/static/script.js"></script>
+    <div id="sources-modal-overlay" class="modal-overlay" style="display: none;">
+        <div id="sources-modal" class="modal">
+            <header class="modal-header">
+                <h3>Select Knowledge Sources</h3>
+                <button id="close-sources-modal-btn" class="close-modal-btn">&times;</button>
+            </header>
+            <div class="modal-content">
+                <div class="modal-actions">
+                    <input type="search" id="sources-search-input" placeholder="Search sources...">
+                    <button id="select-all-sources-btn">Select All</button>
+                    <button id="select-none-sources-btn">Select None</button>
+                </div>
+                <div id="sources-list-container" class="sources-list">
+                    <h4>Chats</h4>
+                    <ul id="sources-list-chats">
+                    </ul>
+                    <h4>Files</h4>
+                    <ul id="sources-list-files">
+                    </ul>
+                </div>
+            </div>
+            <footer class="modal-footer">
+                <button id="apply-sources-btn">Apply</button>
+            </footer>
+        </div>
+    </div>
+
+    <script type="module" src="/static/script.js"></script>
 </body>
 </html>

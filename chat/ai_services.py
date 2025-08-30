@@ -32,6 +32,29 @@ def get_available_models():
     """Returns the cached list of available models."""
     return available_models_cache
 
+# NEW: Function to create embeddings for text chunks (from new code)
+def embed_texts(texts: list[str]) -> list[list[float]]:
+    """Creates embeddings for a list of text chunks using the initialized AI client."""
+    if not client:
+        raise Exception("AI client not initialized to create embeddings. Please set a valid API key.")
+        
+    # Replace newlines as they can sometimes interfere with embedding models
+    texts = [t.replace("\n", " ") for t in texts]
+    
+    try:
+        # Using a standard, high-performance embedding model available on OpenRouter
+        # The model "openai/text-embedding-ada-002" is a common choice for this
+        embeddings = client.embeddings.create(
+            input=texts, 
+            model="openai/text-embedding-ada-002"
+        )
+        # Extract and return the embedding vectors
+        return [result.embedding for result in embeddings.data]
+    except Exception as e:
+        print(f"Error creating embeddings: {e}")
+        # Re-raise the exception so upstream functions can handle it
+        raise e
+
 def get_ai_response(messages: list, model: str):
     """Gets a response from the AI model."""
     if not client:

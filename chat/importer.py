@@ -1,151 +1,72 @@
+# chat/importer.py
+
 import json
 import uuid
-from datetime import datetime
-from memory.memory_store import save_to_memory
-from chat.chat_manager import create_chat_session, generate_chat_id # Ensure generate_chat_id is here or moved
-import hashlib
-import os
-import shutil
-import re # For regex parsing of asset pointers
+from fastapi import APIRouter, UploadFile, File, HTTPException, BackgroundTasks
+from chat.data_processor import parse_chatgpt_export
+from chat.chat_manager import import_chat, import_messages_to_chat, generate_chat_id
+from chat.state import task_statuses
 
-def get_unique_filename(directory, filename):
-    """Generates a unique filename if one already exists in the directory."""
-    name, ext = os.path.splitext(filename)
-    counter = 1
-    new_filename = filename
-    while os.path.exists(os.path.join(directory, new_filename)):
-        new_filename = f"{name}_{counter}{ext}"
-        counter += 1
-    return new_filename
+router = APIRouter()
 
-def import_chatgpt_json(json_contents: str, extracted_files_base_path: str, task_id=None, task_statuses=None):
+def process_conversations_background(task_id: str, json_data: list):
     try:
-        # This function now expects the content of a single chat JSON file (a dictionary)
-        data = json.loads(json_contents)
-    except json.JSONDecodeError as e:
-        return {"error": f"Invalid JSON file: {str(e)}"}
-
-    # Ensure the top-level object is a dictionary for a single conversation
-    if not isinstance(data, dict):
-        return {"error": "Invalid conversation JSON structure. Expected a dictionary at the root."}
-    
-    convo = data # 'data' is already the single conversation dictionary
-    title = convo.get("title") or "Untitled Chat"
-    mapping = convo.get("mapping", {})
-    
-    timestamp = convo.get("create_time")
-    if timestamp is None:
-        timestamp = convo.get("update_time") or datetime.now().timestamp()
-    
-    # Use the shared generate_chat_id function for consistency
-    chat_id = generate_chat_id(title, timestamp) 
-
-    processed_messages_data = []
-    for item_id, item in mapping.items():
-        if not isinstance(item, dict):
-            continue
-
-        msg = item.get("message")
+        parsed_conversations = parse_chatgpt_export(json_data)
+        if not parsed_conversations:
+            task_statuses[task_id] = {"status": "completed", "progress": 100, "message": "File processed, no new conversations found."}
+            return
         
-        if not isinstance(msg, dict):
-            continue
-
-        # MODIFIED: Extract the timestamp for EACH message
-        message_create_time = msg.get("create_time")
-
-        role = msg.get("author", {}).get("role")
-        content_obj = msg.get("content", {})
-        content_parts = content_obj.get("parts", [])
-
-        if role in ("user", "assistant") and content_parts:
-            message_data = {
-                "role": role,
-                "content_type": "text",
-                "text": "",
-                "media_url": None,
-                "timestamp": message_create_time, # Store the message's timestamp
+        parsed_conversations.sort(key=lambda x: x.get('update_time', 0), reverse=True)
+        total_convos = len(parsed_conversations)
+        imported_count = 0
+        skipped_count = 0
+        
+        for i, convo in enumerate(parsed_conversations):
+            progress = int(((i + 1) / total_convos) * 100)
+            task_statuses[task_id] = {
+                "status": "processing",
+                "progress": progress,
+                "message": f"Processing {i + 1} of {total_convos}: {convo['title']}"
             }
-
-            first_part = content_parts[0]
-            if isinstance(first_part, str):
-                message_data["text"] = first_part
-            elif isinstance(first_part, dict):
-                if first_part.get("content_type") == "image_asset_pointer":
-                    asset_pointer = first_part.get("asset_pointer")
-                    if asset_pointer:
-                        match = re.search(r"file-service://([\w-]+)", asset_pointer)
-                        if match:
-                            asset_uuid = match.group(1)
-                            
-                            image_found = False
-                            # Broad search for the image file
-                            for root_dir, _, files in os.walk(extracted_files_base_path):
-                                for fname in files:
-                                    if (asset_uuid in fname) and \
-                                       fname.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg')):
-                                        original_image_path = os.path.join(root_dir, fname)
-                                        
-                                        chat_media_dir = os.path.join("storage", "media", chat_id)
-                                        os.makedirs(chat_media_dir, exist_ok=True)
-                                        
-                                        unique_image_filename = get_unique_filename(chat_media_dir, fname)
-                                        destination_path = os.path.join(chat_media_dir, unique_image_filename)
-                                        
-                                        shutil.copy(original_image_path, destination_path)
-                                        
-                                        message_data["content_type"] = "image"
-                                        message_data["media_url"] = f"/media/{chat_id}/{unique_image_filename}"
-                                        message_data["text"] = msg.get("content", {}).get("text", "") or f"Image generated by {role}."
-                                        image_found = True
-                                        break
-                                if image_found:
-                                    break
-                            if not image_found:
-                                message_data["text"] = f"Image asset (UUID: {asset_uuid}) could not be located."
-                        else:
-                            message_data["text"] = "Invalid image asset pointer format."
-                    else:
-                        message_data["text"] = "Image asset pointer is missing."
-
-                elif first_part.get("content_type") == "code":
-                    message_data["content_type"] = "code"
-                    message_data["text"] = first_part.get("text", "")
-                else:
-                    try:
-                        message_data["text"] = json.dumps(first_part, ensure_ascii=False)
-                    except TypeError:
-                        message_data["text"] = str(first_part)
-            else:
-                message_data["text"] = str(first_part)
             
-            processed_messages_data.append(message_data)
+            # --- [CRITICAL FIX] ---
+            # Generate a stable chat_id here instead of looking for a non-existent one.
+            chat_id = generate_chat_id(convo['title'], convo['create_time'])
+
+            was_imported_or_updated = import_chat(
+                chat_id=chat_id, 
+                title=convo['title'],
+                create_timestamp=convo['create_time'],
+                update_timestamp=convo['update_time']
+            )
+            
+            if was_imported_or_updated:
+                import_messages_to_chat(chat_id=chat_id, messages=convo['messages'])
+                imported_count += 1
+            else:
+                skipped_count += 1
+
+        final_message = f"✅ Import complete. Added {imported_count} new/updated chats. Skipped {skipped_count} duplicates."
+        task_statuses[task_id] = {"status": "completed", "progress": 100, "message": final_message}
+    except Exception as e:
+        print(f"Error during background import (task {task_id}): {e}")
+        task_statuses[task_id] = {"status": "error", "message": f"An error occurred: {e}"}
+
+@router.post("/import/chatgpt-conversations", tags=["Import"])
+async def handle_chatgpt_import(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
+    if file.filename != "conversations.json":
+        raise HTTPException(status_code=400, detail="Invalid file. Please upload 'conversations.json'.")
+    try:
+        contents = await file.read()
+        json_data = json.loads(contents)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not read or parse JSON file: {e}")
+
+    task_id = uuid.uuid4().hex
+    task_statuses[task_id] = {"status": "processing", "progress": 0, "message": "Upload successful, preparing to import."}
+    background_tasks.add_task(process_conversations_background, task_id, json_data)
     
-    if not processed_messages_data:
-        create_chat_session(chat_id, title, timestamp)
-        return {
-            "title": title,
-            "messages_count": 0,
-            "chat_id": chat_id,
-            "message": "No processable messages found in this chat, but session created."
-        }
-
-    # Create the chat session and save messages
-    create_chat_session(chat_id, title, timestamp)
-    for msg_data in processed_messages_data:
-        # MODIFIED: Pass the message's specific timestamp to save_to_memory
-        save_to_memory(
-            text=msg_data["text"],
-            chat_id=chat_id,
-            role=msg_data["role"],
-            content_type=msg_data["content_type"],
-            media_url=msg_data["media_url"],
-            message_timestamp=msg_data["timestamp"] # Pass the correct timestamp here
-        )
-    total_messages = len(processed_messages_data)
-
-    return {
-        "title": title,
-        "messages_count": total_messages,
-        "chat_id": chat_id,
-        "message": f"Imported chat '{title}' with {total_messages} messages."
-    }
+    return {"task_id": task_id, "message": "Import process started in the background."}

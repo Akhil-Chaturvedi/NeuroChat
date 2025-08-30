@@ -1,8 +1,8 @@
-fastapi
-uvicorn
 chromadb
-python-dotenv
-pytest
+fastapi
 httpx
-python-multipart
 openai
+python-dotenv
+python-multipart
+tiktoken
+uvicorn[standard]
