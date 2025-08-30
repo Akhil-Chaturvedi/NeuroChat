@@ -18,8 +18,7 @@ replit.nix.lock
 
 # === ChromaDB memory & state ===
 *.sqlite3
-storage/chroma/
-chat_state.json
+storage
 
 # === API Keys / Secrets ===
 .env
