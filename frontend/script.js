@@ -1,6 +1,7 @@
 import { renderMessage } from './messageRenderer.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+    // DOM Element Constants
     const mainChatArea = document.getElementById('main-chat-area');
     const messageArea = document.getElementById('message-area');
     const messageInput = document.getElementById('message-input');
@@ -42,108 +43,103 @@ document.addEventListener('DOMContentLoaded', () => {
     const navUpBtn = document.getElementById('nav-up-btn');
     const navDownBtn = document.getElementById('nav-down-btn');
 
+    // State variables
     let currentChatId = null;
-    let temporaryChatMessages = [];
+    let temporaryChats = {};
     let isShowingArchived = false;
-    let globalModel = "google/gemini-2.0-flash-exp:free";
+    let globalModel = null;
     let availableModels = [];
     let allSources = [];
+    let currentPage = 1;
     let selectedSourceIDs = null;
-
-    // --- NEW STATE FOR PROMPT HISTORY ---
     let promptHistory = [];
     let historyIndex = -1;
     let draftMessage = '';
-    // --- END NEW STATE ---
+	let defaultApiKey = null;
 
+    // Helper functions
     const saveState = () => {
         if (!apiKeyInput) return;
         const state = { globalModel, apiKey: apiKeyInput.value };
         localStorage.setItem('neuroChatState', JSON.stringify(state));
     };
 
-    const loadState = () => {
-        const savedState = localStorage.getItem('neuroChatState');
-        if (savedState) {
-            const state = JSON.parse(savedState);
-            globalModel = state.globalModel || "google/gemini-2.0-flash-exp:free";
-            if (state.apiKey && apiKeyInput) {
-                apiKeyInput.value = state.apiKey;
-                handleApiKeyVerification(true);
-            }
+    const saveTemporaryChatsToSession = () => {
+        sessionStorage.setItem('temporaryChats', JSON.stringify(temporaryChats));
+    };
+
+    const loadTemporaryChatsFromSession = () => {
+        const savedChats = sessionStorage.getItem('temporaryChats');
+        if (savedChats) {
+            temporaryChats = JSON.parse(savedChats);
         }
-        if (currentModelBtn) {
+    };
+
+const renderModelList = () => {
+    if (!aiModelContainer) return;
+    if (availableModels.length === 0) {
+        aiModelContainer.innerHTML = '<p style="font-size: 12px; color: #BDBDBD;">No models available. Enter a valid API key.</p>';
+        return;
+    }
+
+    const recommendedModel = availableModels[0];
+    const otherModels = availableModels.slice(1);
+
+    const recommendedHTML = `<div class="recommended-model-section"><div class="recommend-title">Recommended</div><div class="ai-model-item" data-model-id="${recommendedModel.id}">${recommendedModel.id}</div></div><hr />`;
+    
+    const otherModelsHTML = otherModels.map(model => 
+        `<div class="ai-model-item" data-model-id="${model.id}">${model.id}</div>`
+    ).join('');
+
+    aiModelContainer.innerHTML = `<label>Set Global Default Model</label><div class="ai-model-list">${recommendedHTML}${otherModelsHTML}</div>`;
+};
+
+const handleApiKeyVerification = async (isSilent = false, keyFromState = null) => {
+    if (!apiKeyInput || !verifyApiKeyBtn || !currentModelBtn) return;
+    const apiKey = keyFromState || apiKeyInput.value.trim();
+    if (!apiKey) {
+        if (!isSilent) alert("Please enter an API key.");
+        return;
+    }
+    verifyApiKeyBtn.textContent = 'Verifying...';
+    verifyApiKeyBtn.disabled = true;
+    try {
+        const response = await fetch('/config/api-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });
+        if (!response.ok) throw new Error((await response.json()).detail || 'Verification failed');
+        
+        const data = await response.json();
+        availableModels = data.models; // This is now an array of objects
+
+        apiKeyInput.value = apiKey;
+        saveState();
+        apiKeyInput.placeholder = maskApiKey(apiKey);
+        apiKeyInput.value = '';
+        updateVerifyButtonVisibility();
+
+        const previouslySavedModel = globalModel;
+        const availableModelIds = availableModels.map(m => m.id);
+
+        if (previouslySavedModel && availableModelIds.includes(previouslySavedModel)) {
+        } else {
+            globalModel = availableModels.length > 0 ? availableModels[0].id : null;
+        }
+        
+        renderModelList();
+        if (globalModel) {
             currentModelBtn.textContent = globalModel.split('/').pop();
         }
-    };
 
-    const restoreTemporaryChat = () => {
-        const saved = sessionStorage.getItem('temporaryChat');
-        if (saved) {
-            temporaryChatMessages = JSON.parse(saved);
-            if (temporaryChatMessages.length > 0) {
-                loadTemporaryChat();
-            }
-        }
-    };
-
-    const saveTemporaryChat = () => {
-        sessionStorage.setItem('temporaryChat', JSON.stringify(temporaryChatMessages));
-    };
-
-    const renderModelList = () => {
-        if (!aiModelContainer) return;
-        if (availableModels.length === 0) {
-            aiModelContainer.innerHTML = '<p style="font-size: 12px; color: #BDBDBD;">No models available. Enter a valid API key.</p>';
-            return;
-        }
-        const preferredModel = "google/gemini-2.0-flash-exp:free";
-        let recommendedHTML = '';
-        let otherModels = [...availableModels];
-        if (availableModels.includes(preferredModel)) {
-            recommendedHTML = `<div class="recommended-model-section"><div class="recommend-title">Recommended</div><div class="ai-model-item" data-model-id="${preferredModel}">${preferredModel}</div></div><hr />`;
-            otherModels = availableModels.filter(m => m !== preferredModel);
-        }
-        const otherModelsHTML = otherModels.map(model => `<div class="ai-model-item" data-model-id="${model}">${model}</div>`).join('');
-        aiModelContainer.innerHTML = `<label>Set Global Default Model</label><div class="ai-model-list">${recommendedHTML}${otherModelsHTML}</div>`;
-    };
-
-    const handleApiKeyVerification = async (isSilent = false) => {
-        if (!apiKeyInput || !verifyApiKeyBtn || !currentModelBtn) return;
-        const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) {
-            if (!isSilent) alert("Please enter an API key.");
-            return;
-        }
-        verifyApiKeyBtn.textContent = 'Verifying...';
-        verifyApiKeyBtn.disabled = true;
-        try {
-            const response = await fetch('/config/api-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Verification failed');
-            }
-            const data = await response.json();
-            availableModels = data.models;
-            const preferredDefault = "google/gemini-2.0-flash-exp:free";
-            if (availableModels.includes(preferredDefault)) {
-                globalModel = preferredDefault;
-            } else if (availableModels.length > 0) {
-                globalModel = availableModels[0];
-            }
-            renderModelList();
-            currentModelBtn.textContent = globalModel.split('/').pop();
-            saveState();
-            verifyApiKeyBtn.textContent = 'Verified';
-            setTimeout(() => { verifyApiKeyBtn.textContent = 'Verify'; verifyApiKeyBtn.disabled = false; }, 2000);
-        } catch (error) {
-            if (!isSilent) alert(`API Key verification failed: ${error.message}`);
-            availableModels = [];
-            renderModelList();
-            verifyApiKeyBtn.textContent = 'Verify';
-            verifyApiKeyBtn.disabled = false;
-        }
-    };
+        verifyApiKeyBtn.textContent = 'Verified';
+        setTimeout(() => { verifyApiKeyBtn.textContent = 'Verify'; verifyApiKeyBtn.disabled = false; }, 2000);
+    } catch (error) {
+        if (!isSilent) alert(`API Key verification failed: ${error.message}`);
+        availableModels = [];
+        renderModelList();
+        verifyApiKeyBtn.textContent = 'Verify';
+        verifyApiKeyBtn.disabled = false;
+        updateVerifyButtonVisibility();
+    }
+};
 
     const pollImportStatus = (taskId) => {
         const interval = setInterval(async () => {
@@ -240,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     };
-    
+
     const handleKnowledgeUpload = async (files) => {
         if (!files.length) return;
         const formData = new FormData();
@@ -276,95 +272,84 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- [REPLACED] HELPER: Find the first message visible from the top ---
-    const findFirstVisibleMessage = () => {
-        const messages = messageArea.querySelectorAll('.message-wrapper');
-        const containerRect = messageArea.getBoundingClientRect();
+const tolerance = 20;
 
-        for (const msg of messages) {
-            const msgRect = msg.getBoundingClientRect();
-            // A message is considered "visible" if its bottom edge is below the top of the container
-            // and its top edge is above the bottom of the container.
-            if (msgRect.bottom > containerRect.top && msgRect.top < containerRect.bottom) {
-                return msg; // Return the very first one that meets the criteria
-            }
+const findMostVisibleMessage = () => {
+    const messages = messageArea.querySelectorAll('.message-wrapper');
+    const containerRect = messageArea.getBoundingClientRect();
+
+    let maxVisible = 0;
+    let bestMsg = null;
+
+    for (const msg of messages) {
+        const msgRect = msg.getBoundingClientRect();
+        const overlap =
+            Math.min(containerRect.bottom, msgRect.bottom) -
+            Math.max(containerRect.top, msgRect.top);
+
+        if (overlap > maxVisible) {
+            maxVisible = overlap;
+            bestMsg = msg;
         }
-        return messages[messages.length - 1]; // Fallback to the last message if none are found
-    };
+    }
 
-    // --- [UPDATED] LOGIC: Navigate to message boundaries ---
-    const navigateToMessageBoundary = (direction) => {
-        const currentMsg = findFirstVisibleMessage(); // Use the new, more reliable helper
-        if (!currentMsg) return;
+    return bestMsg || messages[messages.length - 1];
+};
 
-        const containerScrollTop = messageArea.scrollTop;
-        const messageTop = currentMsg.offsetTop - messageArea.offsetTop;
+const navigateToMessageBoundary = (direction) => {
+    const currentMsg = findMostVisibleMessage();
+    if (!currentMsg) return;
 
-        if (direction === 'up') {
-            if (containerScrollTop > messageTop + 5) {
-                currentMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            } else {
-                const prevMsg = currentMsg.previousElementSibling;
-                if (prevMsg) {
-                    prevMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    // If there's no previous message, scroll to the very top of the container
-                    messageArea.scrollTo({ top: 0, behavior: 'smooth' });
-                }
-            }
-        } else { // direction === 'down'
-            const messageBottom = messageTop + currentMsg.offsetHeight;
-            const containerBottom = containerScrollTop + messageArea.clientHeight;
+    const containerRect = messageArea.getBoundingClientRect();
+    const msgRect = currentMsg.getBoundingClientRect();
 
-            // Use a 5px tolerance for being "at the bottom"
-            const isAtOrPastBottom = containerBottom >= messageBottom - 5;
-
-            if (isAtOrPastBottom) {
-                const nextMsg = currentMsg.nextElementSibling;
-                if (nextMsg) {
-                    nextMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                } else {
-                    // If there's no next message, scroll to the very end of the container
-                    messageArea.scrollTo({ top: messageArea.scrollHeight, behavior: 'smooth' });
-                }
-            } else {
-                // If we are not yet at the bottom of the current message, scroll to its end.
-                currentMsg.scrollIntoView({ behavior: 'smooth', block: 'end' });
-            }
+    if (direction === 'up') {
+        const prevMsg = currentMsg.previousElementSibling;
+        if (prevMsg) {
+            prevMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            currentMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-    };
-
-    // --- [NEW] LOGIC: Handle prompt history recall ---
-    const handlePromptHistory = (event) => {
-        // Only trigger if input is empty or cursor is at the very beginning
-        if (messageInput.value !== '' && messageInput.selectionStart > 0) return;
-        
-        if (event.key === 'ArrowUp') {
-            event.preventDefault();
-            if (historyIndex === -1) { // Navigating for the first time
-                draftMessage = messageInput.value;
-                historyIndex = promptHistory.length - 1;
-            } else if (historyIndex > 0) {
-                historyIndex--;
-            }
-            if (promptHistory[historyIndex] !== undefined) {
-                messageInput.value = promptHistory[historyIndex];
-            }
-        } else if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            if (historyIndex > -1 && historyIndex < promptHistory.length - 1) {
-                historyIndex++;
-                messageInput.value = promptHistory[historyIndex];
-            } else { // Reached the end of history, restore draft
-                historyIndex = -1;
-                messageInput.value = draftMessage;
-            }
+    } else { // down
+        const nextMsg = currentMsg.nextElementSibling;
+        if (nextMsg) {
+            nextMsg.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        } else {
+            currentMsg.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
-    };
+    }
+};
+
+const handlePromptHistory = (event) => {
+    if (messageInput.value !== '' && messageInput.selectionStart > 0) return;
+
+    if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (historyIndex === -1) {
+            draftMessage = messageInput.value;
+            historyIndex = promptHistory.length - 1;
+        } else if (historyIndex > 0) {
+            historyIndex--;
+        }
+        if (promptHistory[historyIndex] !== undefined) {
+            messageInput.value = promptHistory[historyIndex];
+        }
+    } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        if (historyIndex > -1 && historyIndex < promptHistory.length - 1) {
+            historyIndex++;
+            messageInput.value = promptHistory[historyIndex];
+        } else {
+            historyIndex = -1;
+            messageInput.value = draftMessage;
+        }
+    }
+};
 
     const showHomePage = () => {
         currentChatId = null;
         updateHistoryActiveState();
+        updateDropdownMenu();
         if (homePageView) homePageView.style.display = 'block';
         if (mainChatArea) mainChatArea.classList.remove('chat-active');
         if (messageArea) messageArea.innerHTML = '';
@@ -384,19 +369,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const loadTemporaryChat = () => {
-        if (!mainChatArea || !messageArea || !chatHeaderTitle || !currentModelBtn) return;
-        currentChatId = 'temporary';
-        updateHistoryActiveState();
-        mainChatArea.classList.remove('is-archived');
-        chatHeaderTitle.textContent = "Temporary Chat";
-        currentModelBtn.textContent = globalModel.split('/').pop();
-        messageArea.innerHTML = '';
-        temporaryChatMessages.forEach(msg => renderMessage(msg, messageArea));
-        showChatView();
-        scrollToBottom();
-    };
-    
     const updateHistoryActiveState = () => {
         if (!historyList) return;
         const items = historyList.querySelectorAll('li');
@@ -405,105 +377,225 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    const loadChat = async (chatId) => {
-        if (!chatId || !chatHeaderTitle || !messageArea || !mainChatArea || !currentModelBtn) return;
-        if (chatId === 'temporary') {
-            loadTemporaryChat();
+    const updateDropdownMenu = () => {
+        if (!dropdownMenu) return;
+        if (!currentChatId) {
+            dropdownMenu.innerHTML = ''; // Clear it if no chat is active
             return;
         }
+        let menuItems = '';
+        const isTemp = currentChatId.startsWith('temp_');
+
+        if (isTemp) {
+            menuItems = `
+                <a href="#" data-action="rename">Rename</a>
+                <a href="#" data-action="delete" class="delete-option">Delete</a>
+            `;
+        } else if (isShowingArchived) {
+            menuItems = `
+                <a href="#" data-action="rename">Rename</a>
+                <a href="#" data-action="unarchive">Unarchive</a>
+            `;
+        } else {
+            menuItems = `
+                <a href="#" data-action="rename">Rename</a>
+                <a href="#" data-action="archive">Archive</a>
+                <a href="#" data-action="delete" class="delete-option">Delete</a>
+            `;
+        }
+        dropdownMenu.innerHTML = menuItems;
+    };
+
+    const loadTemporaryChat = (chatId) => {
+        if (!mainChatArea || !messageArea || !chatHeaderTitle || !currentModelBtn) return;
+
+        const chatData = temporaryChats[chatId];
+        if (!chatData) {
+            console.error(`Temporary chat with ID ${chatId} not found.`);
+            return;
+        }
+
         currentChatId = chatId;
         updateHistoryActiveState();
-        mainChatArea.classList.toggle('is-archived', isShowingArchived);
-        try {
-            const response = await fetch(`/chat/${chatId}`);
-            if (!response.ok) throw new Error(`Chat not found`);
-            const chatData = await response.json();
-            
-            messageArea.innerHTML = '';
-            chatHeaderTitle.textContent = chatData.title;
-            const modelName = chatData.model || globalModel;
-            currentModelBtn.textContent = modelName.split('/').pop();
-            chatData.messages_page.messages.forEach(msg => renderMessage(msg, messageArea));
-            showChatView();
-            scrollToBottom();
-        } catch (error) {
-            console.error('Failed to load chat:', error);
-            showHomePage();
-            alert('Failed to load chat.');
-        }
+        mainChatArea.classList.add('is-temporary');
+        mainChatArea.classList.remove('is-archived');
+        chatHeaderTitle.textContent = chatData.title;
+        currentModelBtn.textContent = globalModel.split('/').pop();
+
+        messageArea.innerHTML = '';
+        chatData.messages.forEach(msg => renderMessage(msg, messageArea));
+        showChatView();
+        updateDropdownMenu();
+        scrollToBottom();
     };
+
+const loadChat = async (chatId) => {
+    if (!chatId || !chatHeaderTitle || !messageArea || !mainChatArea || !currentModelBtn) return;
+
+    if (chatId.startsWith('temp_')) {
+        loadTemporaryChat(chatId);
+        return;
+    }
+
+    // --- NEW PAGINATION LOGIC STARTS HERE ---
+    mainChatArea.classList.remove('is-temporary');
+    currentChatId = chatId;
+    currentPage = 1; // Reset to page 1 for any new chat load
+    updateHistoryActiveState();
+    mainChatArea.classList.toggle('is-archived', isShowingArchived);
+
+    try {
+        // Fetch the first page (most recent 50 messages)
+        const response = await fetch(`/chat/${chatId}?page=${currentPage}`);
+        if (!response.ok) throw new Error(`Chat not found`);
+        const chatData = await response.json();
+
+        messageArea.innerHTML = ''; // Clear the area for the new chat
+        chatHeaderTitle.textContent = chatData.title;
+        const modelName = chatData.model || globalModel;
+        currentModelBtn.textContent = modelName.split('/').pop();
+
+        // Check if there are more messages to load
+        const totalMessages = chatData.messages_page.total_messages_in_chat;
+        const pageSize = 50; // Must match the backend default
+        if (totalMessages > pageSize) {
+            const loadMoreBtn = document.createElement('button');
+            loadMoreBtn.textContent = 'Load More Messages';
+            loadMoreBtn.id = 'load-more-btn';
+            loadMoreBtn.addEventListener('click', handleLoadMoreMessages);
+            messageArea.appendChild(loadMoreBtn);
+        }
+
+        // Render the first page of messages
+        chatData.messages_page.messages.forEach(msg => renderMessage(msg, messageArea));
+        
+        showChatView();
+        updateDropdownMenu();
+        scrollToBottom(); // Scroll to the newest messages at the bottom
+
+    } catch (error) {
+        console.error('Failed to load chat:', error);
+        showHomePage();
+        alert('Failed to load chat.');
+    }
+};
+
+// --- NEW HELPER FUNCTION FOR PAGINATION ---
+const handleLoadMoreMessages = async () => {
+    const loadMoreBtn = document.getElementById('load-more-btn');
+    if (!loadMoreBtn) return;
+
+    loadMoreBtn.textContent = 'Loading...';
+    loadMoreBtn.disabled = true;
+    currentPage++; // Go to the next page
+
+    try {
+        const response = await fetch(`/chat/${currentChatId}?page=${currentPage}`);
+        if (!response.ok) throw new Error('Failed to fetch more messages');
+        const chatData = await response.json();
+        const newMessages = chatData.messages_page.messages;
+
+        // This is a clever trick to keep the user's view stable
+        const oldScrollHeight = messageArea.scrollHeight;
+        
+        // Remove the button before adding new messages
+        loadMoreBtn.remove();
+
+        // Create a temporary container to render new messages into
+        const fragment = document.createDocumentFragment();
+        const tempDiv = document.createElement('div');
+        newMessages.forEach(msg => renderMessage(msg, tempDiv));
+        
+        // Prepend the new messages to the top of the chat area
+        while (tempDiv.firstChild) {
+            fragment.appendChild(tempDiv.firstChild);
+        }
+        messageArea.prepend(fragment);
+        
+        // Restore the scroll position so the view doesn't jump
+        messageArea.scrollTop = messageArea.scrollHeight - oldScrollHeight;
+
+        // Check if we need to show the button again
+        const totalMessages = chatData.messages_page.total_messages_in_chat;
+        const messagesLoaded = currentPage * 50;
+        if (totalMessages > messagesLoaded) {
+            const newLoadMoreBtn = document.createElement('button');
+            newLoadMoreBtn.textContent = 'Load More Messages';
+            newLoadMoreBtn.id = 'load-more-btn';
+            newLoadMoreBtn.addEventListener('click', handleLoadMoreMessages);
+            messageArea.prepend(newLoadMoreBtn); // Add it back to the top
+        }
+
+    } catch (error) {
+        console.error('Error loading more messages:', error);
+        loadMoreBtn.textContent = 'Error - Retry';
+        loadMoreBtn.disabled = false;
+    }
+};
 
     const loadChatHistory = async () => {
         if (!historyList) return;
         const endpoint = isShowingArchived ? '/chats/archived' : '/chats';
+        historyList.innerHTML = '';
+
         try {
             const response = await fetch(endpoint);
             const chats = await response.json();
-            historyList.innerHTML = '';
-            if (currentChatId === 'temporary') {
-                const li = document.createElement('li');
-                li.dataset.chatId = 'temporary';
-                li.textContent = 'Temporary Chat';
-                li.className = 'temporary-chat-item active';
-                historyList.appendChild(li);
-            }
             chats.forEach(chat => {
                 const li = document.createElement('li');
                 li.dataset.chatId = chat.id;
                 li.textContent = chat.title;
-                li.className = chat.id === currentChatId ? 'active' : '';
                 historyList.appendChild(li);
             });
+
+            if (!isShowingArchived) {
+                Object.values(temporaryChats).forEach(chat => {
+                    const li = document.createElement('li');
+                    li.dataset.chatId = chat.id;
+                    li.textContent = chat.title;
+                    li.classList.add('temporary-chat-item');
+                    historyList.prepend(li);
+                });
+            }
+
         } catch (error) {
             console.error('Failed to load chat history:', error);
         }
+        updateHistoryActiveState();
     };
-    
+
     const handleSendMessage = async () => {
         if (!messageInput || !messageArea) return;
         const text = messageInput.value.trim();
         if (!text) return;
 
-        // --- ADD THIS BLOCK ---
-        if (!promptHistory.includes(text)) { // Avoid duplicate entries
-            promptHistory.push(text);
-        }
-        historyIndex = -1; // Reset history navigation
+        if (!promptHistory.includes(text)) { promptHistory.push(text); }
+        historyIndex = -1;
         draftMessage = '';
-        // --- END OF ADDITION ---
-    
+
         const userMessage = { role: 'user', text };
         messageInput.value = '';
-        messageInput.style.height = '44px'; // Reset height
+        messageInput.style.height = '44px';
 
-        const isTemporary = tempChatBtn.classList.contains('active') || currentChatId === 'temporary';
+        const isTempChatMode = tempChatBtn.classList.contains('active');
+        let chatToUpdateId = currentChatId;
 
-        if (isTemporary && !currentChatId) {
-            loadTemporaryChat();
-        }
-        
-        if (currentChatId === 'temporary') {
-            temporaryChatMessages.push(userMessage);
-            saveTemporaryChat();
+        if (isTempChatMode && (!chatToUpdateId || !chatToUpdateId.startsWith('temp_'))) {
+            const newTempId = `temp_${Date.now()}`;
+            const newTempTitle = text.substring(0, 30) + '...';
+            temporaryChats[newTempId] = { id: newTempId, title: newTempTitle, messages: [] };
+            chatToUpdateId = newTempId;
+            await loadChatHistory();
+            loadTemporaryChat(newTempId);
+        } else if (!chatToUpdateId) {
+            const newChat = await fetch('/chats', { method: 'POST' }).then(res => res.json());
+            chatToUpdateId = newChat.id;
+            await loadChatHistory();
+            await loadChat(chatToUpdateId);
         }
 
         renderMessage(userMessage, messageArea);
         scrollToBottom();
-
-        if (!isTemporary && !currentChatId) {
-            try {
-                const newChatResponse = await fetch('/chats', { method: 'POST' });
-                const newChat = await newChatResponse.json();
-                currentChatId = newChat.id;
-                await loadChatHistory();
-                updateHistoryActiveState();
-                chatHeaderTitle.textContent = newChat.title;
-                showChatView();
-            } catch (error) {
-                renderMessage({ role: 'assistant', text: `Error: Could not create a new chat. ${error.message}` }, messageArea);
-                return;
-            }
-        }
 
         const messageRequest = {
             text: text,
@@ -512,30 +604,26 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         try {
-            const endpoint = currentChatId === 'temporary' ? '/chat/temporary' : `/chat/${currentChatId}/message`;
+            const isCurrentChatTemporary = chatToUpdateId && chatToUpdateId.startsWith('temp_');
+            const endpoint = isCurrentChatTemporary ? '/chat/temporary' : `/chat/${chatToUpdateId}/message`;
+
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(messageRequest)
             });
 
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.detail || 'Failed to get response.');
-            }
-
             const aiMessage = await response.json();
-
-            if (currentChatId === 'temporary') {
-                temporaryChatMessages.push(aiMessage);
-                saveTemporaryChat();
-            } else {
-                 if (historyList.querySelector(`[data-chat-id="${currentChatId}"]`).textContent.startsWith("New Chat")) {
-                    await loadChatHistory();
-                    updateHistoryActiveState();
-                 }
+            if (!response.ok) {
+                throw new Error(aiMessage.text || aiMessage.detail || 'Failed to get AI response.');
             }
-            
+
+            if (isCurrentChatTemporary) {
+                temporaryChats[chatToUpdateId].messages.push(userMessage);
+                temporaryChats[chatToUpdateId].messages.push(aiMessage);
+                saveTemporaryChatsToSession();
+            }
+
             renderMessage(aiMessage, messageArea);
             scrollToBottom();
 
@@ -546,19 +634,113 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Event Listeners & Initial Load ---
     const setupEventListeners = () => {
         if (verifyApiKeyBtn) verifyApiKeyBtn.addEventListener('click', () => handleApiKeyVerification(false));
-        if (aiModelContainer) aiModelContainer.addEventListener('click', (e) => { if (e.target.classList.contains('ai-model-item')) { const newModel = e.target.dataset.modelId; globalModel = newModel; if (!currentChatId || currentChatId === 'temporary') { if(currentModelBtn) currentModelBtn.textContent = globalModel.split('/').pop(); } saveState(); alert(`Global default model set to: ${newModel}`); } });
-        if (currentModelBtn) currentModelBtn.addEventListener('click', async () => { if (!currentChatId || currentChatId === 'temporary') return alert("Select a permanent chat to set its model."); const modelSelection = prompt(`Current model: ${currentModelBtn.textContent}\n\nEnter new model for this chat:\n\n${availableModels.join('\n')}`); if (modelSelection && modelSelection.trim()) { try { const newModel = modelSelection.trim(); await fetch(`/chat/${currentChatId}/model`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: newModel }) }); currentModelBtn.textContent = newModel.split('/').pop(); } catch { alert('Could not set model for chat.'); } } });
+        if (apiKeyInput) {
+            apiKeyInput.addEventListener('focus', () => {
+                apiKeyInput.value = '';
+                apiKeyInput.placeholder = 'Enter new API key...';
+                if(verifyApiKeyBtn) verifyApiKeyBtn.style.display = 'block'; // Always show Verify when they are typing
+            });
+
+            apiKeyInput.addEventListener('blur', () => {
+                if (apiKeyInput.value.trim() === '') {
+                    const savedState = localStorage.getItem('neuroChatState');
+                    if (savedState) {
+                        const state = JSON.parse(savedState);
+                        apiKeyInput.placeholder = maskApiKey(state.apiKey);
+                    } else {
+                        apiKeyInput.placeholder = 'sk-...';
+                    }
+                }
+                updateVerifyButtonVisibility(); // Re-evaluate if the button should be shown
+            });
+        }
+
+        if (aiModelContainer) aiModelContainer.addEventListener('click', (e) => { if (e.target.classList.contains('ai-model-item')) { const newModel = e.target.dataset.modelId; globalModel = newModel; if (!currentChatId || currentChatId.startsWith('temp_')) { if (currentModelBtn) currentModelBtn.textContent = globalModel.split('/').pop(); } saveState(); alert(`Global default model set to: ${newModel}`); } });
+        if (currentModelBtn) currentModelBtn.addEventListener('click', async () => { if (!currentChatId || currentChatId.startsWith('temp_')) return alert("Select a permanent chat to set its model."); const modelListForPrompt = availableModels.map(m => m.id).join('\n'); const modelSelection = prompt(`Current model: ${currentModelBtn.textContent}\n\nEnter new model for this chat:\n\n${modelListForPrompt}`); if (modelSelection && modelSelection.trim()) { try { const newModel = modelSelection.trim(); await fetch(`/chat/${currentChatId}/model`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ model: newModel }) }); currentModelBtn.textContent = newModel.split('/').pop(); } catch { alert('Could not set model for chat.'); } } });
         newChatButtons.forEach(button => button.addEventListener('click', showHomePage));
         if (historyList) historyList.addEventListener('click', (e) => { const li = e.target.closest('li'); if (li && li.dataset.chatId) { loadChat(li.dataset.chatId); } });
         if (promptStartersContainer) promptStartersContainer.addEventListener('click', (e) => { const card = e.target.closest('.starter-card'); if (card && messageInput) { const h3 = card.querySelector('h3').textContent; const p = card.querySelector('p').textContent; messageInput.value = `${h3} ${p}`; handleSendMessage(); } });
-        if (tempChatBtn) tempChatBtn.addEventListener('click', () => tempChatBtn.classList.toggle('active'));
+
+        if (tempChatBtn) {
+            const updateTempChatButtonState = () => {
+                const isActive = tempChatBtn.classList.contains('active');
+                tempChatBtn.title = `Temporary Chat is ${isActive ? 'ON' : 'OFF'}`;
+            };
+
+            tempChatBtn.addEventListener('click', () => {
+                tempChatBtn.classList.toggle('active');
+                updateTempChatButtonState();
+            });
+            updateTempChatButtonState();
+        }
+
         if (toggleArchiveViewBtn) toggleArchiveViewBtn.addEventListener('click', () => { isShowingArchived = !isShowingArchived; toggleArchiveViewBtn.textContent = isShowingArchived ? 'Active Chats' : 'Archived'; showHomePage(); });
         if (kebabBtn && dropdownMenu) { kebabBtn.addEventListener('click', (e) => { e.stopPropagation(); dropdownMenu.classList.toggle('show'); }); window.addEventListener('click', (e) => { if (dropdownMenu.classList.contains('show') && !kebabBtn.contains(e.target) && !dropdownMenu.contains(e.target)) { dropdownMenu.classList.remove('show'); } }); }
         if (optionsBtn && optionsPanel) optionsBtn.addEventListener('click', () => { optionsPanel.classList.toggle('show'); optionsBtn.textContent = optionsPanel.classList.contains('show') ? 'Close Options' : 'Options'; });
-        if (dropdownMenu) dropdownMenu.addEventListener('click', async (e) => { e.preventDefault(); const action = e.target.dataset.action; if (!action || !currentChatId || currentChatId === 'temporary') return; if (action === 'rename') { const newTitle = prompt("Enter new title:", chatHeaderTitle.textContent); if (newTitle && newTitle.trim() !== "" && newTitle !== chatHeaderTitle.textContent) { try { await fetch(`/chat/${currentChatId}/rename`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_title: newTitle.trim() }) }); chatHeaderTitle.textContent = newTitle; historyList.querySelector(`[data-chat-id="${currentChatId}"]`).textContent = newTitle; loadSources(); } catch { alert('Could not rename chat.'); } } } else if (action === 'archive') { if (confirm("Archive this chat?")) { try { await fetch(`/chat/${currentChatId}/archive`, { method: 'POST' }); showHomePage(); } catch { alert('Could not archive chat.'); } } } else if (action === 'delete') { if (confirm("Delete this chat permanently?")) { try { await fetch(`/chat/${currentChatId}`, { method: 'DELETE' }); showHomePage(); } catch { alert('Could not delete chat.'); } } } dropdownMenu.classList.remove('show'); });
+
+        if (dropdownMenu) dropdownMenu.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const action = e.target.dataset.action;
+            if (!action || !currentChatId) return;
+
+            const isTemp = currentChatId.startsWith('temp_');
+            const currentTitle = isTemp ? temporaryChats[currentChatId].title : chatHeaderTitle.textContent;
+
+            if (action === 'rename') {
+                const newTitle = prompt("Enter new title:", currentTitle);
+                if (newTitle && newTitle.trim() !== "" && newTitle.trim() !== currentTitle) {
+                    const finalTitle = newTitle.trim();
+                    if (isTemp) {
+                        temporaryChats[currentChatId].title = finalTitle;
+                        saveTemporaryChatsToSession();
+                        chatHeaderTitle.textContent = finalTitle;
+                        historyList.querySelector(`[data-chat-id="${currentChatId}"]`).textContent = finalTitle;
+                    } else {
+                        try {
+                            await fetch(`/chat/${currentChatId}/rename`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ new_title: finalTitle }) });
+                            chatHeaderTitle.textContent = finalTitle;
+                            historyList.querySelector(`[data-chat-id="${currentChatId}"]`).textContent = finalTitle;
+                            loadSources();
+                        } catch { alert('Could not rename chat.'); }
+                    }
+                }
+            }
+            else if (action === 'delete') {
+                if (confirm("Delete this chat permanently? This cannot be undone.")) {
+                    if (isTemp) {
+                        delete temporaryChats[currentChatId];
+                        saveTemporaryChatsToSession();
+                        showHomePage();
+                    } else {
+                        try {
+                            await fetch(`/chat/${currentChatId}`, { method: 'DELETE' });
+                            showHomePage();
+                            // After deleting a chat, we must refresh the sources list.
+                            loadSources();
+                        } catch { alert('Could not delete chat.'); }
+                    }
+                }
+            }
+            else if (action === 'archive') {
+                if (confirm("Archive this chat?")) {
+                    try { await fetch(`/chat/${currentChatId}/archive`, { method: 'POST' }); showHomePage(); } catch { alert('Could not archive chat.'); }
+                }
+            }
+            else if (action === 'unarchive') {
+                if (confirm("Unarchive this chat?")) {
+                    try {
+                        await fetch(`/chat/${currentChatId}/unarchive`, { method: 'POST' });
+                        isShowingArchived = false;
+                        toggleArchiveViewBtn.textContent = 'Archived';
+                        showHomePage();
+                    } catch { alert('Could not unarchive chat.'); }
+                }
+            }
+            dropdownMenu.classList.remove('show');
+        });
+
         if (importDropArea && jsonFileInput) { importDropArea.addEventListener('click', () => jsonFileInput.click()); jsonFileInput.addEventListener('change', (e) => handleRealFileImport(e.target.files[0])); importDropArea.addEventListener('dragover', (e) => { e.preventDefault(); importDropArea.classList.add('drag-over'); }); importDropArea.addEventListener('dragleave', () => importDropArea.classList.remove('drag-over')); importDropArea.addEventListener('drop', (e) => { e.preventDefault(); importDropArea.classList.remove('drag-over'); handleRealFileImport(e.dataTransfer.files[0]); }); }
         if (knowledgeUploadBtn) knowledgeUploadBtn.addEventListener('click', () => knowledgeFileInput.click());
         if (knowledgeFileInput) knowledgeFileInput.addEventListener('change', (e) => handleKnowledgeUpload(e.target.files));
@@ -568,13 +750,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (sourcesSearchInput) sourcesSearchInput.addEventListener('input', (e) => renderSourcesList(e.target.value));
         if (selectAllSourcesBtn) selectAllSourcesBtn.addEventListener('click', () => { sourcesModal.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true); });
         if (selectNoneSourcesBtn) selectNoneSourcesBtn.addEventListener('click', () => { sourcesModal.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false); });
-        if (applySourcesBtn) applySourcesBtn.addEventListener('click', () => { const allChecked = sourcesModal.querySelectorAll('input[type="checkbox"]:checked'); const allBoxes = sourcesModal.querySelectorAll('input[type="checkbox"]'); selectedSourceIDs = allChecked.length === allBoxes.length ? null : Array.from(allChecked).map(cb => cb.dataset.id); updateSourcesBadge(); if(sourcesModalOverlay) sourcesModalOverlay.style.display = 'none'; });
+        if (applySourcesBtn) applySourcesBtn.addEventListener('click', () => { const allChecked = sourcesModal.querySelectorAll('input[type="checkbox"]:checked'); const allBoxes = sourcesModal.querySelectorAll('input[type="checkbox"]'); selectedSourceIDs = allChecked.length === allBoxes.length ? null : Array.from(allChecked).map(cb => cb.dataset.id); updateSourcesBadge(); if (sourcesModalOverlay) sourcesModalOverlay.style.display = 'none'; });
         if (sendBtn) sendBtn.addEventListener('click', handleSendMessage);
-        
-        // --- ADD THESE NEW LISTENERS ---
+
         if (navUpBtn) navUpBtn.addEventListener('click', () => navigateToMessageBoundary('up'));
         if (navDownBtn) navDownBtn.addEventListener('click', () => navigateToMessageBoundary('down'));
-        
+
         window.addEventListener('keydown', (e) => {
             if (e.altKey && e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -586,30 +767,97 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Add history recall to the message input
         if (messageInput) {
             messageInput.addEventListener('keydown', handlePromptHistory);
-            // The existing Enter key listener should remain
-            messageInput.addEventListener('keydown', (event) => { 
-                if (event.key === 'Enter' && !event.shiftKey) { 
-                    event.preventDefault(); 
-                    handleSendMessage(); 
-                } 
+            messageInput.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSendMessage();
+                }
             });
         }
-        // --- END OF ADDITIONS ---
     };
+	
+const maskApiKey = (key) => {
+    if (!key || key.length < 12) {
+        return '';
+    }
+    const prefix = key.substring(0, 8);
+    const suffix = key.substring(key.length - 4);
+    return `${prefix}●●●●●●●●●●${suffix}`;
+};
+
+const updateVerifyButtonVisibility = () => {
+    const savedState = localStorage.getItem('neuroChatState');
+    let currentKey = '';
+    if (savedState) {
+        currentKey = JSON.parse(savedState).apiKey || '';
+    }
+
+    if ((defaultApiKey && currentKey !== defaultApiKey) || !defaultApiKey) {
+        verifyApiKeyBtn.style.display = 'block';
+    } else {
+        verifyApiKeyBtn.style.display = 'none';
+    }
+};
+
+const initializeAppState = async () => {
+    const savedState = localStorage.getItem('neuroChatState');
+    if (savedState) {
+        const state = JSON.parse(savedState);
+        globalModel = state.globalModel || null;
+    }
+
+    try {
+        const response = await fetch('/config/status');
+        const serverConfig = await response.json();
+        
+        let keyToUse = null;
+
+        if (serverConfig.default_api_key) {
+            console.log("Found default API key from the server's .env file.");
+            defaultApiKey = serverConfig.default_api_key;
+            keyToUse = defaultApiKey;
+        } else {
+            console.log("No default key on server. Checking browser storage.");
+            // We can re-use the savedState we loaded earlier
+            if (savedState) {
+                keyToUse = JSON.parse(savedState).apiKey;
+            }
+        }
+
+        if (keyToUse) {
+            apiKeyInput.value = keyToUse;
+            saveState(); // Save to localStorage (ensures key is stored if coming from .env)
+            
+            apiKeyInput.type = 'text';
+            apiKeyInput.placeholder = maskApiKey(keyToUse);
+            apiKeyInput.value = '';
+            
+            // Now, when this is called, globalModel will have your saved value!
+            handleApiKeyVerification(true, keyToUse);
+        } else {
+            console.log("No API key found. Waiting for user input.");
+            updateVerifyButtonVisibility();
+        }
+
+    } catch (error) {
+        console.error("Failed to get server config status. Waiting for user input.", error);
+        updateVerifyButtonVisibility();
+    }
+
+    loadTemporaryChatsFromSession();
+    loadChatHistory();
+    loadSources();
+    updateSourcesBadge();
+    setupEventListeners();
+    if (currentChatId === null && homePageView) {
+        homePageView.style.display = 'block';
+    }
+};
 
     const init = () => {
-        loadState();
-        restoreTemporaryChat();
-        loadChatHistory();
-        loadSources();
-        updateSourcesBadge();
-        setupEventListeners();
-        if (currentChatId === null && homePageView) {
-            homePageView.style.display = 'block';
-        }
+        initializeAppState();
     };
 
     init();

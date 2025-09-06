@@ -6,15 +6,12 @@ import hashlib
 from datetime import datetime
 from memory.memory_store import get_messages_for_chat, delete_messages_for_chat, save_imported_message, save_to_memory
 
-# Constants
 CHAT_STATE_FILE = "storage/chat_state.json"
 SOURCES_META_FILE = "storage/sources_meta.json"
 
-# Ensure storage directories exist
 os.makedirs(os.path.dirname(CHAT_STATE_FILE), exist_ok=True)
 os.makedirs(os.path.dirname(SOURCES_META_FILE), exist_ok=True)
 
-# Helper for _load_chat_state to avoid double json.load
 def _load_json_robust(filepath: str, default_value=None):
     if os.path.exists(filepath):
         with open(filepath, "r", encoding='utf-8') as f:
@@ -25,19 +22,13 @@ def _load_json_robust(filepath: str, default_value=None):
                 return default_value
     return default_value
 
-# ### MODIFIED ###: Now accepts a specific chat_id for imports
 def import_chat(chat_id: str, title: str, create_timestamp: float, update_timestamp: float) -> str | None:
-    """
-    Imports or updates a chat session. If a chat with the given ID exists and
-    the import data is newer, it updates. Otherwise, it creates.
-    """
     chat_state = _load_chat_state()
 
-    existing_chat = chat_state.get(chat_id) # Look up by chat_id
+    existing_chat = chat_state.get(chat_id)
     
     if existing_chat:
         existing_update_time = existing_chat.get('last_updated', 0)
-        # Check if the imported version is newer
         if update_timestamp > existing_update_time:
             print(f"Updating existing chat '{title}' (ID: {chat_id}). Deleting old messages...")
             delete_messages_for_chat(chat_id) # Delete messages by the correct chat_id
@@ -55,7 +46,6 @@ def import_chat(chat_id: str, title: str, create_timestamp: float, update_timest
             print(f"Skipping chat '{title}' (ID: {chat_id}) - no newer data.")
             return None # Skip if not newer
     else:
-        # Create a new entry for the imported chat
         print(f"Creating new imported chat '{title}' with ID: {chat_id}")
         chat_state[chat_id] = {
             "id": chat_id, 
@@ -69,21 +59,13 @@ def import_chat(chat_id: str, title: str, create_timestamp: float, update_timest
         _add_source(source_id=chat_id, name=title, source_type="chat_import")
         return chat_id
 
-# ### MODIFIED ###: This function now passes an index to preserve order
 def import_messages_to_chat(chat_id: str, messages: list[dict]):
-    """
-    Adds a list of rich message objects to a specified chat session.
-    It now includes an 'order_index' to guarantee the sequence.
-    """
-    # Use enumerate to get both the index and the message object
     for index, message_obj in enumerate(messages):
         save_imported_message(
             chat_id=chat_id,
             message_obj=message_obj,
             order_index=index  # Pass the index to lock in the order
         )
-
-# --- General Utility Functions ---
 
 def generate_chat_id(title: str, timestamp: float) -> str:
     """Generates a unique chat ID based on title and a timestamp."""
@@ -136,7 +118,6 @@ def _delete_source(source_id: str):
         del sources[source_id]
         _save_sources_meta(sources)
 
-# ### MODIFIED ###: Uses 'chat_new' source_type
 def create_chat_session(chat_id: str, title: str, timestamp: float):
     """Creates a new chat session from the UI."""
     chat_state = _load_chat_state()
@@ -157,7 +138,6 @@ def set_chat_model(chat_id: str, model: str) -> bool:
         return True
     return False
 
-# ### MODIFIED ###: Updates source meta to reflect new title and preserves original type
 def rename_chat_session(chat_id: str, new_title: str) -> bool:
     """Renames an existing chat session."""
     chat_state = _load_chat_state()
@@ -167,12 +147,21 @@ def rename_chat_session(chat_id: str, new_title: str) -> bool:
         chat_state[chat_id]['last_updated'] = datetime.now().timestamp()
         _save_chat_state(chat_state)
         
-        # Update the source metadata with the new name, preserving its original type
         sources = _load_sources_meta()
         if chat_id in sources:
             sources[chat_id]['name'] = new_title
             _save_sources_meta(sources)
         
+        return True
+    return False
+
+def unarchive_chat_session(chat_id: str) -> bool:
+    """Unarchives a chat session."""
+    chat_state = _load_chat_state()
+    if chat_id in chat_state:
+        chat_state[chat_id]['archived'] = False
+        chat_state[chat_id]['last_updated'] = datetime.now().timestamp()
+        _save_chat_state(chat_state)
         return True
     return False
 

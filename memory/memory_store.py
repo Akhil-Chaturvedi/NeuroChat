@@ -5,10 +5,12 @@ import uuid
 import json
 import re
 from datetime import datetime
+from chat.ai_services import embed_texts
 
-client = chromadb.PersistentClient(path="storage/chroma")
+chroma_client = chromadb.PersistentClient(path="storage/chroma")
+
 try:
-    unified_memory_collection = client.get_or_create_collection(name="unified_memory")
+    unified_memory_collection = chroma_client.get_or_create_collection(name="unified_memory")
     print("Successfully connected to ChromaDB and got 'unified_memory' collection.")
 except Exception as e:
     print(f"FATAL: Could not connect to ChromaDB. Error: {e}")
@@ -55,10 +57,9 @@ def save_chunks_to_memory(ids: list, chunks: list, embeddings: list, metadatas: 
     if not unified_memory_collection: return
     unified_memory_collection.add(ids=ids, documents=chunks, embeddings=embeddings, metadatas=metadatas)
 
-def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text", media_url: str = None, message_timestamp: float = None):
+def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text", media_url: str = None, message_timestamp: float = None, model_slug: str = None):
     if not unified_memory_collection: return
-    from chat.ai_services import embed_texts
-
+    
     message_id = f"msg_{uuid.uuid4().hex}"
     timestamp = message_timestamp if message_timestamp is not None else datetime.now().timestamp()
     
@@ -68,7 +69,9 @@ def save_to_memory(text: str, chat_id: str, role: str, content_type: str = "text
     metadata = {
         "source_id": chat_id, "source_type": "chat_message", "role": role, "timestamp": timestamp,
         "content_type": content_type or "text", "media_url": media_url or "",
-        "is_hidden": False, "model_slug": "", "citations": "[]",
+        "is_hidden": False,
+        "model_slug": model_slug or "",
+        "citations": "[]",
         "order_index": order_index
     }
     
@@ -202,7 +205,6 @@ def delete_messages_for_chat(chat_id: str):
 
 def query_unified_memory(query_text: str, source_ids: list[str] | None = None, n_results: int = 5) -> list[dict]:
     if not unified_memory_collection: return []
-    from chat.ai_services import embed_texts
     
     query_embedding = embed_texts([query_text])[0]
     filter_metadata = {"source_id": {"$in": source_ids}} if source_ids else None

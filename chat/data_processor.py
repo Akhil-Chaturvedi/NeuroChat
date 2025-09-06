@@ -8,7 +8,6 @@ from chat.chat_manager import add_file_source
 
 # --- Helper Functions (keep _normalize_and_format_timestamp and _get_content_text as they are) ---
 def _normalize_and_format_timestamp(ts: float | None) -> tuple[float | None, str | None]:
-    # ... (no changes here)
     if ts is None:
         return None, None
     normalized_ts = ts
