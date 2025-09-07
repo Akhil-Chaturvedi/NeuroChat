@@ -1,12 +1,16 @@
 # In main.py
 
+# --- STEP 1: Standard library imports needed ONLY for the installer ---
 import sys
 import os
 import subprocess
 
+# --- STEP 2: The installer logic and execution ---
+# This block MUST come before any third-party imports like fastapi, dotenv, etc.
 try:
     import pkg_resources
 except ImportError:
+    # This is a fallback for very minimal python environments that might not have setuptools
     print("Missing 'setuptools' which is required for checking packages. Attempting to install...")
     subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'setuptools'])
     print("\n✅ 'setuptools' installed. Please restart the script.")
@@ -14,6 +18,7 @@ except ImportError:
 
 def read_requirements():
     """Reads the requirements from requirements.txt and returns them as a list."""
+    # Get the absolute path to the directory containing main.py
     dir_path = os.path.dirname(os.path.realpath(__file__))
     req_file_path = os.path.join(dir_path, 'requirements.txt')
     
@@ -23,6 +28,7 @@ def read_requirements():
         sys.exit(1)
     
     with open(req_file_path, 'r') as f:
+        # Read lines, strip whitespace, and filter out empty lines or comments
         return [line.strip() for line in f if line.strip() and not line.startswith('#')]
 
 def check_and_install_packages():
@@ -34,6 +40,7 @@ def check_and_install_packages():
     installed = {pkg.key for pkg in pkg_resources.working_set}
     missing = []
     for req in required_packages:
+        # Handles package names with versions (e.g., fastapi==0.100.0) or extras (e.g., uvicorn[standard])
         base_req = req.split('[')[0].split('==')[0].split('>=')[0].split('<=')[0].strip()
         if base_req not in installed:
             missing.append(req)
@@ -51,8 +58,11 @@ def check_and_install_packages():
             print(f"pip install -r requirements.txt")
             sys.exit(1)
 
+# Run the check before the application tries to import anything
 check_and_install_packages()
 
+
+# --- STEP 3: Now, all other imports can safely run ---
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Response
 from dotenv import load_dotenv
 load_dotenv()
@@ -85,7 +95,7 @@ async def lifespan(app: FastAPI):
     yield
     print("Application shutdown.")
 
-app = FastAPI(lifspan=lifspan)
+app = FastAPI(lifespan=lifespan) # <-- THIS LINE IS NOW CORRECTED
 
 # --- Pydantic Models ---
 class ApiKeyRequest(BaseModel):
@@ -163,6 +173,7 @@ def get_config_status():
     else:
         return {"default_api_key": None, "initialized": False}
 
+# --- HELPER FUNCTIONS FOR CHAT INTERACTION ---
 def save_conversation_turn_in_background(
     chat_id: str,
     user_text: str,
