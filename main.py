@@ -1,5 +1,58 @@
 # In main.py
 
+import sys
+import os
+import subprocess
+
+try:
+    import pkg_resources
+except ImportError:
+    print("Missing 'setuptools' which is required for checking packages. Attempting to install...")
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'setuptools'])
+    print("\n✅ 'setuptools' installed. Please restart the script.")
+    sys.exit(0)
+
+def read_requirements():
+    """Reads the requirements from requirements.txt and returns them as a list."""
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    req_file_path = os.path.join(dir_path, 'requirements.txt')
+    
+    if not os.path.exists(req_file_path):
+        print(f"❌ Error: requirements.txt not found at {req_file_path}")
+        print("Please ensure requirements.txt is in the same directory as main.py.")
+        sys.exit(1)
+    
+    with open(req_file_path, 'r') as f:
+        return [line.strip() for line in f if line.strip() and not line.startswith('#')]
+
+def check_and_install_packages():
+    """
+    Checks if all required packages from requirements.txt are installed.
+    """
+    required_packages = read_requirements()
+    
+    installed = {pkg.key for pkg in pkg_resources.working_set}
+    missing = []
+    for req in required_packages:
+        base_req = req.split('[')[0].split('==')[0].split('>=')[0].split('<=')[0].strip()
+        if base_req not in installed:
+            missing.append(req)
+
+    if missing:
+        print("Some required packages are missing. Attempting to install...")
+        print(f"Missing: {', '.join(missing)}")
+        try:
+            python_executable = sys.executable
+            subprocess.check_call([python_executable, '-m', 'pip', 'install', *missing])
+            print("\n✅ All packages installed successfully. Please restart the script.")
+            sys.exit(0)
+        except subprocess.CalledProcessError:
+            print("\n❌ Error: Failed to install packages. Please install them manually using:")
+            print(f"pip install -r requirements.txt")
+            sys.exit(1)
+
+check_and_install_packages()
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks, Response
 from dotenv import load_dotenv
 load_dotenv()
@@ -8,11 +61,13 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
+import uuid
+import uvicorn
 
 from chat.importer import router as import_router
 from chat import state
 from chat.state import task_statuses
-
 from chat.chat_manager import (
     list_chats, get_chat_by_id, create_chat_session, 
     generate_chat_id, rename_chat_session, delete_chat_session,
@@ -23,10 +78,6 @@ from memory.memory_store import query_unified_memory, save_to_memory
 from chat.ai_services import initialize_client, get_available_models, get_ai_response
 from chat.data_processor import process_and_store_file
 
-import uuid
-import uvicorn
-import os
-from datetime import datetime
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,7 +85,7 @@ async def lifespan(app: FastAPI):
     yield
     print("Application shutdown.")
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifspan=lifspan)
 
 # --- Pydantic Models ---
 class ApiKeyRequest(BaseModel):
@@ -112,7 +163,6 @@ def get_config_status():
     else:
         return {"default_api_key": None, "initialized": False}
 
-# --- HELPER FUNCTIONS FOR CHAT INTERACTION ---
 def save_conversation_turn_in_background(
     chat_id: str,
     user_text: str,
@@ -145,7 +195,6 @@ def is_query_search_worthy(text: str) -> bool:
             return True
     return False
 
-# --- [NEW HELPER FUNCTION ADDED] ---
 def filter_relevant_chunks(query: str, chunks: list[dict]) -> list[dict]:
     """
     Uses a fast LLM to screen chunks for relevance before final generation.
@@ -180,18 +229,15 @@ def filter_relevant_chunks(query: str, chunks: list[dict]) -> list[dict]:
             
     return relevant_chunks
 
-# --- [ENDPOINT REPLACED WITH NEW LOGIC] ---
 @app.post("/chat/{chat_id}/message")
 def post_message(chat_id: str, message: MessageRequest, background_tasks: BackgroundTasks):
     context = ""
     
-    # STAGE 1: Retrieval
     if is_query_search_worthy(message.text):
         print(f"Search-worthy query detected. Searching memory for: '{message.text}'")
         try:
             retrieved_chunks = query_unified_memory(message.text, source_ids=message.source_ids)
             
-            # STAGE 2: The Relevance Gate (Strategy 1)
             if retrieved_chunks:
                 final_chunks = filter_relevant_chunks(message.text, retrieved_chunks)
                 if final_chunks:
@@ -202,9 +248,7 @@ def post_message(chat_id: str, message: MessageRequest, background_tasks: Backgr
     else:
         print(f"Conversational query detected. Skipping memory search for: '{message.text}'")
 
-    # STAGE 3: The Smart Assistant (Combined Strategy 2)
     if context:
-        # The prompt is now aware that the context has been pre-screened.
         augmented_prompt = (
             "You are a helpful AI assistant. Your task is to answer the user's question using the provided context. "
             "This context has been pre-screened by another AI and is considered highly relevant to the user's question. "
@@ -214,10 +258,8 @@ def post_message(chat_id: str, message: MessageRequest, background_tasks: Backgr
             f"USER'S QUESTION: {message.text}"
         )
     else:
-        # If no context survived the gate, we just use the user's text directly.
         augmented_prompt = message.text
 
-    # The rest of the function remains the same
     chat_data = get_chat_by_id(chat_id, page=1, page_size=10)
     if not chat_data:
         return JSONResponse(status_code=404, content={"detail": "Chat not found"})
@@ -253,7 +295,7 @@ def post_temporary_message(message: MessageRequest):
 @app.post("/chats", status_code=201)
 def create_new_chat():
     timestamp = datetime.now().timestamp()
-    title = f"New Chat - {datetime.fromtimestamp(timestamp).strftime('%Y-m-%d %H:%M')}"
+    title = f"New Chat - {datetime.fromtimestamp(timestamp).strftime('%Y-%m-%d %H:%M')}"
     chat_id = generate_chat_id(title, timestamp)
     create_chat_session(chat_id, title, timestamp)
     return {"id": chat_id, "title": title, "timestamp": timestamp}

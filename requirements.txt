@@ -4,5 +4,6 @@ httpx
 openai
 python-dotenv
 python-multipart
+sentence-transformers
 tiktoken
 uvicorn[standard]
